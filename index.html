@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Worksheet Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary: #000000;
+            --secondary: #474747;
+            --input-bg-color: #a71c1c; /* Default white for input backgrounds */
+            --navy: #061E29;
+        }
+
+        body {
+            background-color: #f8fafc;
+            color: #000000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .heading-primary { color: var(--primary); }
+        .bg-primary { background-color: var(--primary); }
+        .text-navy { color: var(--navy); }
+        .border-teal { border-color: var(--secondary); }
+        .bg-cloud { background-color: var(--background); }
+
+        #sidebar {
+            width: 380px;
+            height: 100vh;
+            overflow-y: auto;
+            border-right: 1px solid #e2e8f0;
+            background: rgb(198, 198, 199);
+            z-index: 20;
+            flex-shrink: 0;
+        }
+
+        #preview-pane {
+            flex: 1;
+            height: 100vh;
+            overflow-y: auto;
+            overflow: auto;
+            background-color: #959ba1;
+            padding: 80px 20px 80px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+            scroll-behavior: smooth;
+            position: relative;
+        }
+
+        #zoom-controls {
+            position: fixed;
+            top: 20px;
+            right: 40px;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: white;
+            padding: 8px 16px;
+            border-radius: 9999px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: 1px solid #e2e8f0;
+        }
+
+        /* Fixed Standard Letter Dimensions with 1 inch margin */
+        .page-container {
+            width: 8.5in;
+            height: 11in; 
+            background: white;
+            padding: 1in; /* 1 Inch Margin */
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            position: relative;
+            flex-shrink: 0;
+            box-sizing: border-box;
+            transform-origin: top center;
+            overflow: hidden; 
+            overflow: visible; 
+            margin-bottom: 40px; 
+            display: flex;
+            flex-direction: column;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Visual indicator for print boundary in preview */
+        .page-container::after {
+            content: "PRINT BOUNDARY";
+            position: absolute; bottom: 0; left: 0; right: 0;
+            border-bottom: 2px dashed #ef4444;
+            color: #ef4444; font-size: 10px; font-weight: bold;
+            text-align: right; padding: 2px 5px; pointer-events: none; opacity: 0.6;
+        }
+
+        .tab-btn {
+            border:#000000;
+            border-radius: 25px;
+            border-width: 4px;
+            padding: 12px;
+            font-weight: bold;
+            transition: all 0.2s;
+            flex: 1;
+            text-align: center;
+        }
+        .tab-btn.active {
+            border-bottom-color: var(--primary);
+            color: var(--primary);
+            background-color: #ffffff;
+        }
+
+        @media print {
+            @page {
+                size: letter;
+                margin: 0; 
+            }
+            #sidebar, #zoom-controls, .no-print { display: none !important; }
+            #preview-pane { 
+                padding: 0; 
+                background: white; 
+                overflow: visible; 
+                height: auto; 
+                display: block; 
+            }
+            .page-container { 
+                transform: none !important; 
+                margin: 0 !important; 
+                box-shadow: none; 
+                width: 8.5in; 
+                height: 11in;
+                padding: 1in; 
+                page-break-after: always;
+                page-break-inside: avoid;
+                overflow: hidden;
+            }
+            body { overflow: visible; height: auto; }
+            .page-container::after { display: none; }
+        }
+
+        .worksheet-title-display {
+            color: black
+        }
+
+        /* Apply custom border color to all relevant input types */
+        input[type="text"],
+        input[type="number"],
+        select {
+            border-color: var(--input-border-color); /* Apply custom border color */
+            background-color: var(--input-bg-color); /* Apply custom background color */
+        }
+
+        /* Apply custom background color to selection box labels */
+        #sidebar label.flex.items-center.gap-2 {
+            background-color: var(--input-bg-color);
+        }
+
+
+        .worksheet-grid {
+            display: grid;
+            width: 100%;
+           /* background-color: #661d1d; /* Light gray shade to visualize the grid area */
+            /* Auto-fit height based on content */            column-gap: 1rem; /* Adjusted to maximize problem width and reduce right-side negative space */
+            row-gap: 2rem;    /* Reduced to allow more problems to fit vertically on the page */
+            align-content: start; /* Problems start from the top, consistent with row-gap */
+            box-sizing: border-box;
+            flex-grow: 1;
+        }
+
+        .problem-card {
+            padding: 0.1rem;
+            position: relative;
+            min-height: 90px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; /* Keep content at the top of the card */
+            align-items: center; /* Center content horizontally within the card */
+            overflow: visible; 
+        }
+
+        .math-stacked {
+            display: inline-block;
+            text-align: right;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.2em;
+            line-height: 1.2;
+        }
+
+        .math-line { border-bottom: 2px solid black; margin-bottom: 0.2rem; width: 100%; }
+        .answer-text { color: #b91c1c; font-weight: bold; text-decoration: underline; }
+
+        input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); }
+        .header-line { border-bottom: 1.5px solid black; display: inline-block; vertical-align: bottom; }
+        
+        .zoom-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s;
+            color: var(--primary);
+            font-weight: bold;
+        }
+        .zoom-btn:hover { background: #f1f5f9; }
+
+        .fraction {
+            display: inline-flex;
+            flex-direction: column;
+            vertical-align: middle;
+            text-align: center;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            margin: 0 0.2rem;
+            font-size: 1em; 
+        }
+        .fraction .num { border-bottom: 2px solid black; padding: 0 2px; }
+        .fraction .den { padding: 0 2px; }
+        .mixed-number { display: inline-flex; align-items: center; font-size: 1em; }
+        .format-subgroup { margin-left: 1.5rem; padding: 0.5rem; border-left: 2px solid #e2e8f0; margin-top: 0.25rem; font-size: 0.75rem; }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row h-screen w-screen overflow-hidden">
+
+    <aside id="sidebar" class="no-print p-6 flex flex-col w-full md:w-[380px] h-auto max-h-[35vh] md:max-h-full md:h-full overflow-y-auto border-b md:border-b-0 md:border-r border-gray-200 flex-shrink-0">
+        <header class="mb-4 border-b-2 border-teal pb-4">
+            <h1 class="text-2xl font-bold heading-primary">Worksheet Generator</h1>
+        </header>
+
+        <div class="flex border-b mb-6 no-print">
+            <button onclick="switchMode('arithmetic')" id="tabArith" class="tab-btn active">Arithmetic</button>
+            <button onclick="switchMode('order')" id="tabOrder" class="tab-btn">Order of Operations</button>
+        </div>
+
+        <div class="space-y-6 flex-1 text-sm">
+            <section>
+                <h2 class="font-bold heading-primary mb-2">Worksheet Title</h2>
+                <input type="text" id="customTitleInput" placeholder="Enter title" 
+                       class="w-full p-2 rounded border border-gray-300" 
+                       oninput="syncTitle()">
+            </section>
+
+            <!-- ================= ARITHMETIC CONTROLS ================= -->
+            <div id="arithmeticControls" class="space-y-6">
+                <section>
+                    <h2 class="font-bold heading-primary mb-2">Operations</h2>
+                    <div class="grid grid-cols-1 gap-2">
+                        <label class="flex items-center gap-2 p-2 rounded bg-cloud cursor-pointer"><input type="checkbox" name="ops" value="addition" checked> Addition</label>
+                        <label class="flex items-center gap-2 p-2 rounded bg-cloud cursor-pointer"><input type="checkbox" name="ops" value="subtraction"> Subtraction</label>
+                        <label class="flex items-center gap-2 p-2 rounded bg-cloud cursor-pointer"><input type="checkbox" name="ops" value="multiplication"> Multiplication</label>
+                        <label class="flex items-center gap-2 p-2 rounded bg-cloud cursor-pointer"><input type="checkbox" name="ops" value="division"> Division</label>
+                        <label class="flex items-center gap-2 p-2 rounded bg-teal-100 cursor-pointer"><input type="checkbox" id="modeFractions"> <strong>Fractions</strong></label>
+                    </div>
+                </section>
+
+                <!-- Fraction Module -->
+                <section id="fractionSettings" class="hidden p-3 border-2 border-teal rounded bg-teal-50 space-y-4">
+                    <h3 class="font-bold text-navy border-b border-teal pb-1">Fractions Module</h3>
+                    
+                    <div>
+                        <p class="text-[10px] font-bold uppercase text-gray-500 mb-1">Denominators</p>
+                        <div class="space-y-1">
+                            <label class="flex items-center gap-2"><input type="radio" name="denType" value="benchmarks" checked> Benchmarks</label>
+                            <label class="flex items-center gap-2"><input type="radio" name="denType" value="within20"> Within 20</label>
+                            <label class="flex items-center gap-2"><input type="radio" name="denType" value="within100"> Within 100</label>
+                            <div class="flex items-center gap-2">
+                                <input type="radio" name="denType" value="custom"> 
+                                <input type="text" id="customDens" placeholder="e.g. 7, 12, 15" class="w-full p-1 border rounded text-xs">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p class="text-[10px] font-bold uppercase text-gray-500 mb-1">Terms</p>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2"><input type="radio" name="termType" value="common" checked> Common</label>
+                            <label class="flex items-center gap-2"><input type="radio" name="termType" value="uncommon"> Uncommon</label>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <p class="text-[10px] font-bold uppercase text-gray-500">Formats</p>
+                        <div class="space-y-1">
+                            <label class="flex items-center gap-2"><input type="checkbox" id="fmtWhole"> Whole Numbers</label>
+                            <div id="wholeOptions" class="format-subgroup hidden">
+                                <label class="flex items-center gap-2"><input type="radio" name="wholeScope" value="first" checked> First Term</label>
+                                <label class="flex items-center gap-2"><input type="radio" name="wholeScope" value="second"> Second Term</label>
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="flex items-center gap-2"><input type="checkbox" id="fmtImproper"> Improper Fractions</label>
+                            <div id="improperOptions" class="format-subgroup hidden">
+                                <label class="flex items-center gap-2"><input type="radio" name="impScope" value="first" checked> First Term</label>
+                                <label class="flex items-center gap-2"><input type="radio" name="impScope" value="second"> Second Term</label>
+                                <label class="flex items-center gap-2"><input type="radio" name="impScope" value="both"> Both Terms</label>
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="flex items-center gap-2"><input type="checkbox" id="fmtMixed"> Mixed Numbers</label>
+                            <div id="mixedOptions" class="format-subgroup hidden">
+                                <label class="flex items-center gap-2"><input type="radio" name="mixScope" value="first" checked> First Term</label>
+                                <label class="flex items-center gap-2"><input type="radio" name="mixScope" value="second"> Second Term</label>
+                                <label class="flex items-center gap-2"><input type="radio" name="mixScope" value="both"> Both Terms</label>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Standard Number Logic -->
+                <section id="standardSettings">
+                    <h2 class="font-bold heading-primary mb-2">Number Logic</h2>
+                    <div class="space-y-3">
+                        <div class="flex gap-2">
+                            <select id="numType" class="w-full p-2 rounded border border-gray-300">
+                                <option value="integers">Integers Only</option>
+                                <option value="decimals">Decimals</option>
+                            </select>
+                            <select id="precision" class="w-full p-2 rounded border border-gray-300 hidden">
+                                <option value="1">Tenths</option>
+                                <option value="2">Hundredths</option>
+                                <option value="3">Thousandths</option>
+                            </select>
+                        </div>
+
+                        <div class="p-3 border rounded border-gray-100">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">Digits</p>
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex-1"><label class="text-[10px]">First Term (Top)</label><input type="number" id="digitsTop" value="2" min="1" max="6" class="w-full p-1 border rounded"></div>
+                                <div class="flex-1"><label class="text-[10px]">Second Term (Bottom)</label><input type="number" id="digitsBottom" value="2" min="1" max="6" class="w-full p-1 border rounded"></div>
+                            </div>
+                        </div>
+
+                        <div class="p-3 border rounded border-gray-100">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">Number Range</p>
+                            <div class="flex gap-2">
+                                <input type="number" id="rangeMin" placeholder="Min" class="w-full p-1 border rounded">
+                                <input type="number" id="rangeMax" placeholder="Max" class="w-full p-1 border rounded">
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Layout & Style -->
+                <section>
+                    <h2 class="font-bold heading-primary mb-2">Layout & Style</h2>
+                    <div class="space-y-2">
+                        <select id="layoutStyle" class="w-full p-2 rounded border border-gray-300">
+                            <option value="stacked">Vertical (Stacked)</option>
+                            <option value="horizontal">Horizontal (Equations)</option>
+                        </select>
+                        <div class="grid grid-cols-1 gap-1">
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="modeMissing"> Missing Numbers</label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="modeRemainders"> Include Remainders (Div)</label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="modeWord"> Word Problems</label>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ================= ORDER OF OPERATIONS CONTROLS ================= -->
+            <div id="orderControls" class="hidden space-y-6">
+                <section>
+                    <h2 class="font-bold heading-primary mb-2">Structure</h2>
+                    <div class="bg-cloud p-3 rounded space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span>Terms</span>
+                            <input type="number" id="termCount" value="3" min="2" max="6" class="w-16 p-1 rounded border">
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span>Max Value</span>
+                            <input type="number" id="maxValue" value="12" min="1" max="100" class="w-16 p-1 rounded border">
+                        </div>
+                        <div>
+                            <p class="font-bold mb-2">Operations</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="flex items-center gap-2"><input type="checkbox" name="orderOps" value="+" checked> +</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" name="orderOps" value="-" checked> -</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" name="orderOps" value="×" checked> ×</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" name="orderOps" value="÷"> ÷</label>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="font-bold mb-2">Distributive Property</p>
+                            <select id="distMode" class="w-full p-1 border rounded">
+                                <option value="none">None</option>
+                                <option value="mixed">Mixed</option>
+                                <option value="all">All</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2 class="font-bold heading-primary mb-2">Variables & Extras</h2>
+                    <div class="bg-cloud p-3 rounded space-y-3">
+                        <div class="grid grid-cols-1 gap-2">
+                            <label class="flex items-center gap-2 p-2 rounded bg-white cursor-pointer text-xs">
+                                <input type="checkbox" id="includeX"> Include Variable (x)
+                            </label>
+                            <label class="flex items-center gap-2 p-2 rounded bg-white cursor-pointer text-xs">
+                                <input type="checkbox" id="includeX2"> Include Variable (x²)
+                            </label>
+                        </div>
+                        <div class="border-t border-teal pt-2 mt-2">
+                            <label class="flex items-center gap-2 p-2 rounded bg-white cursor-pointer text-xs mb-2">
+                                <input type="checkbox" id="orderFractions"> Include Basic Fractions
+                            </label>
+                            <label class="flex items-center gap-2 p-2 rounded bg-white cursor-pointer text-xs mb-2">
+                                <input type="checkbox" id="allowNeg" checked> Allow Negative Results
+                            </label>
+                            <div>
+                                <p class="font-bold mb-1 text-xs">Substitution Mode</p>
+                                <select id="substMode" class="w-full p-1 border rounded text-xs">
+                                    <option value="none">None</option>
+                                    <option value="global">Page-Wide (Single x)</option>
+                                    <option value="individual">Individual (Per Problem)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Global Output Settings -->
+            <section>
+                <h2 class="font-bold heading-primary mb-2">Output Settings</h2>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between bg-cloud p-3 rounded">
+                        <span>Page Count</span>
+                        <input type="number" id="pageQuantity" value="1" min="1" max="25" class="w-16 p-1 rounded border">
+                    </div>
+                    <div class="flex items-center justify-between bg-cloud p-3 rounded">
+                        <span>Problems Per Page</span>
+                        <input type="number" id="quantity" value="12" min="1" max="40" class="w-16 p-1 rounded border">
+                    </div>
+                    <label class="mt-3 flex items-center gap-2 cursor-pointer font-bold text-navy">
+                        <input type="checkbox" id="includeKey" checked> Generate Answer Key
+                    </label>
+                </div>
+            </section>
+        </div>
+
+        <div class="mt-6 pt-6 border-t space-y-2">
+            <button onclick="updatePreview()" class="w-full py-3 bg-primary text-white font-bold rounded hover:opacity-90 transition uppercase tracking-wide">Generate</button>
+            <button onclick="window.print()" class="w-full py-3 border-2 border-teal text-navy font-bold rounded hover:bg-gray-50 transition">Print</button>
+        </div>
+    </aside>
+
+    <main id="preview-pane" class="flex-1 h-full overflow-y-auto relative scroll-smooth">
+        <div id="zoom-controls" class="no-print">
+            <button onclick="changeZoom(-0.1)" class="zoom-btn" title="Zoom Out"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+            <span id="zoom-level" class="text-sm font-bold w-12 text-center text-navy">100%</span>
+            <button onclick="changeZoom(0.1)" class="zoom-btn" title="Zoom In"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+            <button onclick="resetZoom()" class="text-xs text-gray-400 hover:text-primary underline ml-2">Reset</button>
+        </div>
+        <div id="page-wrapper" class="flex flex-col items-center gap-10 w-full"></div>
+    </main>
+
+    <script>
+        let currentMode = 'arithmetic';
+        let currentZoom = 1.0;
+
+        const ui = {
+            previewPane: document.getElementById('preview-pane'),
+            pageWrapper: document.getElementById('page-wrapper'),
+            titleInput: document.getElementById('customTitleInput'),
+            modeFractions: document.getElementById('modeFractions'),
+            fracSettings: document.getElementById('fractionSettings'),
+            stdSettings: document.getElementById('standardSettings'),
+            arithControls: document.getElementById('arithmeticControls'),
+            orderControls: document.getElementById('orderControls'),
+            tabArith: document.getElementById('tabArith'),
+            tabOrder: document.getElementById('tabOrder'),
+            zoomLevel: document.getElementById('zoom-level'),
+            // Toggles
+            fmtWhole: document.getElementById('fmtWhole'),
+            wholeOptions: document.getElementById('wholeOptions'),
+            fmtImproper: document.getElementById('fmtImproper'),
+            improperOptions: document.getElementById('improperOptions'),
+            fmtMixed: document.getElementById('fmtMixed'),
+            mixedOptions: document.getElementById('mixedOptions'),
+            numType: document.getElementById('numType'),
+            precision: document.getElementById('precision')
+        };
+
+        // UI Event Listeners
+        function switchMode(mode) {
+            currentMode = mode;
+            ui.tabArith.classList.toggle('active', mode === 'arithmetic');
+            ui.tabOrder.classList.toggle('active', mode === 'order');
+            ui.arithControls.classList.toggle('hidden', mode !== 'arithmetic');
+            ui.orderControls.classList.toggle('hidden', mode !== 'order');
+        }
+
+        ui.modeFractions.addEventListener('change', (e) => {
+            ui.fracSettings.classList.toggle('hidden', !e.target.checked);
+            ui.stdSettings.classList.toggle('hidden', e.target.checked);
+        });
+
+        ui.fmtWhole.addEventListener('change', (e) => ui.wholeOptions.classList.toggle('hidden', !e.target.checked));
+        ui.fmtImproper.addEventListener('change', (e) => ui.improperOptions.classList.toggle('hidden', !e.target.checked));
+        ui.fmtMixed.addEventListener('change', (e) => ui.mixedOptions.classList.toggle('hidden', !e.target.checked));
+        
+        ui.numType.addEventListener('change', () => {
+            ui.precision.classList.toggle('hidden', ui.numType.value !== 'decimals');
+        });
+
+        function changeZoom(delta) {
+            currentZoom = Math.min(Math.max(0.4, currentZoom + delta), 2.0);
+            applyZoom();
+        }
+        function resetZoom() { currentZoom = 1.0; applyZoom(); }
+        
+        function applyZoom() {
+            ui.zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
+            document.querySelectorAll('.page-container').forEach(page => {
+                page.style.transform = `scale(${currentZoom})`;
+                // Calculate margin adjustment to remove gaps
+                // Standard page height is 11in = approx 1056px
+                const pageHeightPx = 1056; 
+                const margin = (pageHeightPx * (currentZoom - 1)) + 40;
+                page.style.marginBottom = `${margin}px`;
+            });
+        }
+        function syncTitle() {
+            const title = ui.titleInput.value || "Mathematics Assessment";
+            document.querySelectorAll('.worksheet-title-display').forEach(el => el.textContent = title);
+        }
+
+        // Logic Helpers
+        function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+        function simplify(n, d) { const common = gcd(n, d); return [n / common, d / common]; }
+        
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function generateValue(digits, userMin, userMax, isDecimal, precision) {
+            const digitMin = Math.pow(10, digits - 1);
+            const digitMax = Math.pow(10, digits) - 1;
+            const finalMin = userMin !== "" ? Math.max(digitMin, parseFloat(userMin)) : digitMin;
+            const finalMax = userMax !== "" ? Math.min(digitMax, parseFloat(userMax)) : digitMax;
+
+            if (finalMin > finalMax) {
+                const fallbackMin = userMin !== "" ? parseFloat(userMin) : digitMin;
+                const fallbackMax = userMax !== "" ? parseFloat(userMax) : digitMax;
+                const val = Math.random() * (fallbackMax - fallbackMin) + fallbackMin;
+                return isDecimal ? parseFloat(val.toFixed(parseInt(precision))) : Math.floor(val);
+            }
+
+            const val = Math.random() * (finalMax - finalMin) + finalMin;
+            return isDecimal ? parseFloat(val.toFixed(parseInt(precision))) : Math.floor(val);
+        }
+
+        function getFractionsData() {
+            const denType = document.querySelector('input[name="denType"]:checked').value;
+            let dens = [2, 3, 4, 5, 8, 10];
+            if (denType === 'within20') dens = Array.from({length: 19}, (_, i) => i + 2);
+            else if (denType === 'within100') dens = Array.from({length: 99}, (_, i) => i + 2);
+            else if (denType === 'custom') {
+                const val = document.getElementById('customDens').value;
+                if (val) dens = val.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v));
+            }
+            return {
+                dens,
+                termType: document.querySelector('input[name="termType"]:checked').value,
+                whole: ui.fmtWhole.checked,
+                wholeScope: document.querySelector('input[name="wholeScope"]:checked')?.value,
+                improper: ui.fmtImproper.checked,
+                impScope: document.querySelector('input[name="impScope"]:checked')?.value,
+                mixed: ui.fmtMixed.checked,
+                mixScope: document.querySelector('input[name="mixScope"]:checked')?.value
+            };
+        }
+
+        function createFraction(isFirst, config) {
+            const den = config.dens[Math.floor(Math.random() * config.dens.length)];
+            const isWhole = config.whole && ((isFirst && config.wholeScope === 'first') || (!isFirst && config.wholeScope === 'second'));
+            const isMixed = config.mixed && (config.mixScope === 'both' || (isFirst && config.mixScope === 'first') || (!isFirst && config.mixScope === 'second'));
+            const isImproper = config.improper && (config.impScope === 'both' || (isFirst && config.impScope === 'first') || (!isFirst && config.impScope === 'second'));
+
+            if (isWhole) return { whole: Math.floor(Math.random() * 9) + 2, num: 0, den: 1, type: 'whole' };
+            
+            let num;
+            if (isMixed) {
+                do { num = Math.floor(Math.random() * (den - 1)) + 1; } while (num % den === 0);
+                return { whole: Math.floor(Math.random() * 4) + 1, num, den, type: 'mixed' };
+            } else if (isImproper) {
+                num = (Math.floor(Math.random() * (den - 1)) + 1) + den * (Math.floor(Math.random() * 2) + 1);
+                return { whole: 0, num, den, type: 'improper' };
+            } else {
+                do { num = Math.floor(Math.random() * (den - 1)) + 1; } while (num % den === 0);
+                return { whole: 0, num, den, type: 'proper' };
+            }
+        }
+
+        function computeFractionAnswer(f1, f2, op) {
+            const getImp = (f) => {
+                if (f.type === 'whole') return { n: f.whole, d: 1 };
+                const w = f.whole || 0;
+                return { n: w * f.den + f.num, d: f.den };
+            };
+            const v1 = getImp(f1);
+            const v2 = getImp(f2);
+            let resN, resD;
+            if (op === 'addition') {
+                resN = v1.n * v2.d + v2.n * v1.d; resD = v1.d * v2.d;
+            } else if (op === 'subtraction') {
+                resN = v1.n * v2.d - v2.n * v1.d; resD = v1.d * v2.d;
+            } else if (op === 'multiplication') {
+                resN = v1.n * v2.n; resD = v1.d * v2.d;
+            } else if (op === 'division') {
+                resN = v1.n * v2.d; resD = v1.d * v2.n;
+            }
+            if (resD === 0) return "Undef";
+            if (resN === 0) return "0";
+            const [sN, sD] = simplify(Math.abs(resN), Math.abs(resD));
+            const sign = (resN * resD < 0) ? "-" : "";
+            if (sD === 1) return sign + sN;
+            if (sN > sD) {
+                const w = Math.floor(sN / sD);
+                const rem = sN % sD;
+                return rem === 0 ? sign + w : `${sign}${w} ${rem}/${sD}`;
+            }
+            return `${sign}${sN}/${sD}`;
+        }
+
+        // GENERATORS
+        function createArithmeticProblem(op) {
+            if (ui.modeFractions.checked) {
+                const config = getFractionsData();
+                let f1 = createFraction(true, config);
+                let f2 = createFraction(false, config);
+                if (f1.type !== 'whole' && f2.type !== 'whole' && config.termType === 'common') {
+                    f2.den = f1.den;
+                }
+                const ans = computeFractionAnswer(f1, f2, op);
+                return { f1, f2, op, type: 'fraction', answer: ans };
+            } else {
+                const isDec = ui.numType.value === 'decimals';
+                const prec = document.getElementById('precision').value;
+                const tD = parseInt(document.getElementById('digitsTop').value);
+                const bD = parseInt(document.getElementById('digitsBottom').value);
+                const rMin = document.getElementById('rangeMin').value;
+                const rMax = document.getElementById('rangeMax').value;
+
+                let n1 = generateValue(tD, rMin, rMax, isDec, prec);
+                let n2 = generateValue(bD, rMin, rMax, isDec, prec);
+
+                if (op === 'subtraction' && n2 > n1) [n1, n2] = [n2, n1];
+                if (op === 'division' && !document.getElementById('modeRemainders').checked) {
+                    n1 = n2 * getRandomInt(2, 12);
+                }
+
+                let ans;
+                if (op === 'addition') ans = n1 + n2;
+                else if (op === 'subtraction') ans = n1 - n2;
+                else if (op === 'multiplication') ans = n1 * n2;
+                else ans = n1 / n2;
+
+                if(isDec) ans = parseFloat(ans.toFixed(parseInt(prec)));
+                else if (op === 'division' && document.getElementById('modeRemainders').checked) {
+                     ans = `${Math.floor(n1/n2)} R ${n1%n2}`;
+                }
+
+                return { n1, n2, op, type: 'standard', answer: ans };
+            }
+        }
+
+        function formatAlgebraicAnswer(balance) {
+            let terms = [];
+            // Round to avoid floating point weirdness
+            const r = (n) => Math.round(n * 100) / 100;
+            const b = { x2: r(balance.x2), x: r(balance.x), num: r(balance.num) };
+
+            if (b.x2 !== 0) terms.push({ coef: b.x2, var: 'x²' });
+            if (b.x !== 0) terms.push({ coef: b.x, var: 'x' });
+            if (b.num !== 0 || terms.length === 0) terms.push({ coef: b.num, var: '' });
+
+            let str = "";
+            terms.forEach((t, i) => {
+                let val = t.coef;
+                let v = t.var;
+                
+                if (i === 0) {
+                    if (val === 1 && v) str += v;
+                    else if (val === -1 && v) str += "-" + v;
+                    else str += val + v;
+                } else {
+                    str += (val >= 0) ? " + " : " - ";
+                    val = Math.abs(val);
+                    if (val === 1 && v) str += v;
+                    else str += val + v;
+                }
+            });
+            return str;
+        }
+
+        function generateOrderOfOps(substMode, globalVal) {
+            const termsCount = parseInt(document.getElementById('termCount').value);
+            const maxVal = parseInt(document.getElementById('maxValue').value);
+            const distMode = document.getElementById('distMode').value;
+            const useX = document.getElementById('includeX').checked;
+            const useX2 = document.getElementById('includeX2').checked;
+            const useOrderFrac = document.getElementById('orderFractions').checked;
+            const allowNeg = document.getElementById('allowNeg').checked;
+            const hasVariables = useX || useX2;
+            
+            const activeOps = Array.from(document.querySelectorAll('input[name="orderOps"]:checked')).map(i => i.value);
+            if (!activeOps.length) activeOps.push('+');
+
+            let shouldDistribute = (distMode === 'all' || (distMode === 'mixed' && Math.random() > 0.5));
+            let expression = "";
+            let substitutionVal = null;
+
+            if (substMode === 'global') {
+                substitutionVal = globalVal;
+            } else if (substMode === 'individual') {
+                substitutionVal = Math.floor(Math.random() * 10) + 1;
+            }
+
+            // --- BALANCE TRACKING ---
+            let balance = { 'num': 0, 'x': 0, 'x2': 0 };
+
+            const getTermType = (termStr) => {
+                if (termStr.includes('x²')) return 'x2';
+                if (termStr.includes('x')) return 'x';
+                return 'num';
+            };
+
+            const parseVal = (termStr) => {
+                let s = termStr.replace('x²','').replace('x','');
+                if (s === '') return 1;
+                if (s.includes('/')) {
+                    const [n, d] = s.split('/');
+                    return parseInt(n)/parseInt(d);
+                }
+                return parseFloat(s);
+            };
+
+            if (shouldDistribute && termsCount >= 3) {
+                const coeff = Math.floor(Math.random() * (maxVal / 2)) + 2;
+                
+                const innerTerms = [];
+                let op1 = '+'; 
+
+                let val1 = Math.floor(Math.random() * maxVal) + 1;
+                let term1 = val1.toString();
+                if(useX2 && Math.random() > 0.7) term1 = `${val1}x²`;
+                else if(useX && Math.random() > 0.5) term1 = `${val1}x`;
+                
+                let type1 = getTermType(term1);
+                balance[type1] += parseVal(term1) * coeff;
+                innerTerms.push(term1);
+
+                op1 = activeOps[Math.floor(Math.random() * activeOps.length)];
+                
+                // Smart value gen for subtraction
+                let val2;
+                if (!allowNeg && op1 === '-') {
+                    val2 = Math.floor(Math.random() * (val1 - 1)) + 1; 
+                    if (val2 < 1) val2 = 1;
+                } else {
+                    val2 = Math.floor(Math.random() * maxVal) + 1;
+                }
+
+                let term2 = val2.toString();
+                if(useX2 && Math.random() > 0.7) term2 = `${val2}x²`;
+                else if(useX && Math.random() > 0.5) term2 = `${val2}x`;
+                
+                let type2 = getTermType(term2);
+                let amt2 = parseVal(term2) * coeff;
+
+                if (!allowNeg && op1 === '-') {
+                    if (type1 === type2) {
+                        if (val1 < parseVal(term2)) {
+                            op1 = '+';
+                            balance[type2] += amt2;
+                        } else {
+                            balance[type2] -= amt2;
+                        }
+                    } else {
+                        balance[type2] -= amt2;
+                    }
+                } else {
+                    if (op1 === '-') balance[type2] -= amt2;
+                    else balance[type2] += amt2;
+                }
+                innerTerms.push(term2);
+
+                expression = `${coeff}(${innerTerms[0]} ${op1} ${innerTerms[1]})`;
+                
+                for(let k = 2; k < termsCount; k++) {
+                    let nextOp = activeOps[Math.floor(Math.random() * activeOps.length)];
+                    // Force + or - if variables are present to ensure balance tracking works for simplification
+                    if (hasVariables && nextOp !== '+' && nextOp !== '-') {
+                        nextOp = Math.random() > 0.5 ? '+' : '-';
+                    }
+
+                    let type = (useX2 && Math.random()>0.7) ? 'x2' : (useX && Math.random()>0.5) ? 'x' : 'num';
+                    
+                    let amt;
+                    if (!allowNeg && nextOp === '-') {
+                        let maxAmt = Math.floor(balance[type]);
+                        if (maxAmt < 1) {
+                            nextOp = '+';
+                            amt = Math.floor(Math.random() * maxVal) + 1;
+                        } else {
+                            amt = Math.floor(Math.random() * maxAmt) + 1;
+                        }
+                    } else {
+                        amt = Math.floor(Math.random() * maxVal) + 1;
+                    }
+
+                    let term = amt.toString();
+                    if (type === 'x2') term += 'x²';
+                    else if (type === 'x') term += 'x';
+
+                    if (nextOp === '-') balance[type] -= amt;
+                    else balance[type] += amt;
+                    
+                    expression += ` ${nextOp} ${term}`;
+                }
+
+            } else {
+                const parts = [];
+                // First term
+                let val = Math.floor(Math.random() * maxVal) + 1;
+                let term = val.toString();
+                if (useOrderFrac && Math.random() > 0.6) {
+                    let num = Math.floor(Math.random() * val) + 1;
+                    term = `${num}/${val+1}`;
+                } else if(useX2 && Math.random() > 0.8) term = `${val}x²`;
+                else if(useX && Math.random() > 0.6) term = `${val}x`;
+                
+                let type = getTermType(term);
+                balance[type] += parseVal(term);
+                parts.push(term);
+
+                for(let i=1; i<termsCount; i++) {
+                    let op = activeOps[Math.floor(Math.random() * activeOps.length)];
+                    // Force + or - if variables are present to ensure balance tracking works for simplification
+                    if (hasVariables && op !== '+' && op !== '-') {
+                        op = Math.random() > 0.5 ? '+' : '-';
+                    }
+                    
+                    let nextType = 'num';
+                    if(useX2 && Math.random() > 0.8) nextType = 'x2';
+                    else if(useX && Math.random() > 0.6) nextType = 'x';
+
+                    let amt;
+                    if (!allowNeg && op === '-') {
+                        let currentBal = balance[nextType];
+                        if (currentBal < 1) {
+                            op = '+';
+                            amt = Math.floor(Math.random() * maxVal) + 1;
+                        } else {
+                            amt = Math.floor(Math.random() * currentBal) + 1;
+                        }
+                    } else {
+                        amt = Math.floor(Math.random() * maxVal) + 1;
+                    }
+
+                    term = amt.toString();
+                    if (useOrderFrac && nextType === 'num' && Math.random() > 0.6) {
+                         let num = Math.floor(Math.random() * amt) + 1;
+                         term = `${num}/${amt+1}`;
+                    } else {
+                        if (nextType === 'x2') term += 'x²';
+                        else if (nextType === 'x') term += 'x';
+                    }
+
+                    if (op === '-') balance[nextType] -= amt;
+                    else if (op === '+') balance[nextType] += amt;
+
+                    parts.push(op);
+                    parts.push(term);
+                }
+                expression = parts.join(' ');
+            }
+
+            let answerText = "Simplify";
+            let clean = expression.replace(/×/g, '*').replace(/÷/g, '/');
+            let isNumeric = !clean.includes('x');
+            
+            if (substitutionVal !== null) {
+                clean = clean.replace(/x²/g, `*${substitutionVal**2}`);
+                clean = clean.replace(/x/g, `*${substitutionVal}`);
+                clean = clean.replace(/(\+|-|\*|\/)\s*\*/g, '$1');
+                if (clean.startsWith('*')) clean = clean.substring(1);
+                clean = clean.replace(/(\d)\s*\(/g, '$1*('); 
+                try {
+                    const res = eval(clean);
+                    answerText = Number.isInteger(res) ? res : parseFloat(res.toFixed(2));
+                } catch(e) { answerText = "Err"; }
+                
+            } else if (isNumeric) {
+                clean = clean.replace(/(\d)\s*\(/g, '$1*('); 
+                try {
+                    const res = eval(clean);
+                    answerText = Number.isInteger(res) ? res : parseFloat(res.toFixed(2));
+                } catch(e) { answerText = "Err"; }
+            } else {
+                answerText = formatAlgebraicAnswer(balance);
+            }
+
+            return { 
+                type: 'order', 
+                display: expression, 
+                answer: answerText,
+                subst: substitutionVal,
+                isGlobalSubst: (substMode === 'global')
+            };
+        }
+
+        // RENDERERS
+        function renderFracUI(f) {
+            if (f.type === 'whole') return `<span class="text-xl mx-1">${f.whole}</span>`;
+            const wholePart = f.whole > 0 ? `<span class="text-xl mr-1">${f.whole}</span>` : "";
+            return `<div class="mixed-number">${wholePart}<div class="fraction"><span class="num">${f.num}</span><span class="den">${f.den}</span></div></div>`;
+        }
+
+        function renderProblem(p, i, isKey = false, fontSizeClass) {
+            const symbols = { addition: '+', subtraction: '-', multiplication: '×', division: '÷' };
+            const isStacked = document.getElementById('layoutStyle').value === 'stacked';
+            const isMissing = document.getElementById('modeMissing').checked;
+            const missingSlot = Math.random() > 0.5 ? 1 : 2;
+
+            let html = `<div class="problem-card"><span class="absolute top-0 left-0 text-[10px] font-bold text-gray-400">${i + 1}.</span>`;
+            
+            if (p.type === 'order') {
+                let problemText = p.display;
+                if (p.subst !== null && !isKey && !p.isGlobalSubst) {
+                    problemText += `; \xa0 x = ${p.subst}`;
+                }
+               html += `<div class="mt-6 ${fontSizeClass} font-mono whitespace-nowrap js-order-problem-text">${problemText}</div>`;
+                if (!isKey) {
+                   // =sign and answer line -> html += `<div class="mt-4 font-mono font-bold ${fontSizeClass} whitespace-nowrap"> = <span class="ml-2">_______</span></div>`;
+                } else {
+                    html += `<div class="text-right font-bold text-[#1D546D] ${fontSizeClass}">${p.answer}</div>`;
+                }
+            } else if (p.type === 'fraction') {
+                html += `<div class="flex items-center gap-2 mt-4 ${fontSizeClass} whitespace-nowrap">${renderFracUI(p.f1)} ${symbols[p.op] || p.op} ${renderFracUI(p.f2)} = ${isKey ? `<span class="answer-text ml-2">${p.answer}</span>` : `<span class="ml-2">_______</span>`}</div>`;
+            } else {
+                // Standard Arithmetic
+                const sym = symbols[p.op] || p.op;
+                
+                if (p.op === 'division' && isStacked) {
+                     html += `<div class="ml-4 mt-4 ${fontSizeClass} font-mono whitespace-nowrap">
+                        ${isKey ? `<span class="answer-text absolute -top-4 ml-6">${p.answer}</span>` : ''}
+                        ${p.n2} <span class="border-t-2 border-l-2 border-black px-2 pt-1"> ${p.n1} </span>
+                    </div>`;
+                } else if (isStacked) {
+                    let topDisp = p.n1, botDisp = p.n2, resDisp = isKey ? `<span class="answer-text">${p.answer}</span>` : '&nbsp;';
+                    if (!isKey && isMissing) {
+                        if (missingSlot === 1) topDisp = "___"; else botDisp = "___";
+                    }
+                    html += `<div class="math-stacked mt-4 ${fontSizeClass} whitespace-nowrap"><div>${topDisp}</div><div>${sym} ${botDisp}</div><div class="math-line"></div><div>${resDisp}</div></div>`;
+                } else {
+                    html += `<div class="mt-4 font-mono font-bold ${fontSizeClass} whitespace-nowrap">${p.n1} ${sym} ${p.n2} = ${isKey ? `<span class="answer-text">${p.answer}</span>` : '____'}</div>`;
+                }
+            }
+            if (!isKey && document.getElementById('modeWord').checked && i < 4 && p.type === 'standard') {
+                 html += `<div class="mt-4 text-sm italic text-gray-600 border-t pt-2">Word problem version would go here...</div>`;
+            }
+            return html + '</div>';
+        }
+
+        function createPageHTML(title, isAnswerKey, pageNum, colCount, globalSubstVal) {
+            let substHeader = "";
+            if (!isAnswerKey && globalSubstVal !== null && currentMode === 'order') {
+                substHeader = `<div class="text-center font-bold text-lg mt-2 text-[#1D546D]">Evaluate each expression given x = ${globalSubstVal}</div>`;
+            }
+
+            return `
+            <div class="page-container" style="transform: scale(${currentZoom})">
+                <header class="text-center mb-10 border-b-2 border-teal pb-5">
+                    <h1 class="worksheet-title-display text-3xl font-black heading-primary tracking-tight">${isAnswerKey ? 'Answer Key - ' : ''}${title}</h1>
+                    ${!isAnswerKey ? `
+                    <div class="flex justify-between items-end mt-8 font-bold text-navy text-sm">
+                        <div class="flex items-baseline flex-1 pr-8"><span>Name:</span><div class="header-line w-48 ml-2"></div></div>
+                       
+                        <div class="flex items-baseline ml-4"><span>Date:</span><div class="header-line w-24 ml-2"></div></div>
+                    </div>` : `<div class="mt-4 font-bold text-navy">Page ${pageNum}</div>`}
+                    ${substHeader}
+                </header>
+                <div class="worksheet-grid problem-area" style="grid-template-columns: repeat(${colCount}, 1fr)"></div>
+            </div>`;
+        }
+
+        function updatePreview() {
+            ui.pageWrapper.innerHTML = '';
+            const pageQty = parseInt(document.getElementById('pageQuantity').value) || 1;
+            const probQty = parseInt(document.getElementById('quantity').value) || 12;
+            
+            // Dynamically determine column quantity based on problems per page
+            let colCount;
+            if (probQty <= 5) colCount = 1; // 1-5 problems: 1 column
+            else if (probQty <= 10) colCount = 2; // 6-10 problems: 2 columns
+            else if (probQty <= 15) colCount = 3; // 11-15 problems: 3 columns
+            else if (probQty < 20) colCount = 4; // 16-20 problems: 4 columns
+            else colCount = 5; // For >=20 problems, use 5 columns
+
+            const title = ui.titleInput.value || "Mathematics Assessment";
+            const activeOps = Array.from(document.querySelectorAll('#arithmeticControls input[name="ops"]:checked')).map(i => i.value);
+            const substMode = document.getElementById('substMode').value;
+
+            // Calculate font size class
+            let fontSizeClass = 'text-2xl'; // Default for 1 column
+            if (colCount === 2) fontSizeClass = 'text-xl';
+            else if (colCount === 3) fontSizeClass = 'text-lg';
+            else if (colCount >= 4) fontSizeClass = 'text-base'; // Use text-base for 4 or 5 columns
+
+            const allData = [];
+            const globalSubstVals = [];
+
+            for(let p=0; p<pageQty; p++) {
+                const pageProbs = [];
+                let globalVal = null;
+                if (currentMode === 'order' && substMode === 'global') {
+                    globalVal = Math.floor(Math.random() * 10) + 1;
+                }
+                globalSubstVals.push(globalVal);
+
+                for(let i=0; i<probQty; i++) {
+                    if (currentMode === 'order') {
+                        pageProbs.push(generateOrderOfOps(substMode, globalVal));
+                    } else {
+                        const op = activeOps[Math.floor(Math.random()*activeOps.length)] || 'addition';
+                        pageProbs.push(createArithmeticProblem(op));
+                    }
+                }
+                allData.push(pageProbs);
+            }
+
+            allData.forEach((probs, pIdx) => {
+                const temp = document.createElement('div');
+                temp.innerHTML = createPageHTML(title, false, pIdx+1, colCount, globalSubstVals[pIdx]); // Pass colCount
+                const page = temp.firstElementChild;
+                const grid = page.querySelector('.problem-area');
+                probs.forEach((p, i) => grid.innerHTML += renderProblem(p, i, false, fontSizeClass));
+                 if (currentMode === 'order') {
+                        grid.querySelectorAll('.js-order-problem-text').forEach(adjustOrderProblemFontSize);
+        }
+                ui.pageWrapper.appendChild(page);
+            });
+
+            if(document.getElementById('includeKey').checked) {
+                allData.forEach((probs, pIdx) => {
+                    const temp = document.createElement('div');
+                    temp.innerHTML = createPageHTML(title, true, pIdx+1, colCount, null); // Pass colCount
+                    const page = temp.firstElementChild;
+                    const grid = page.querySelector('.problem-area');
+                    probs.forEach((p, i) => grid.innerHTML += renderProblem(p, i, true, fontSizeClass));
+                    if (currentMode === 'order') {
+                        grid.querySelectorAll('.js-order-problem-text').forEach(adjustOrderProblemFontSize);
+                    }
+                    ui.pageWrapper.appendChild(page);
+                });
+            }
+            applyZoom();
+            syncTitle();
+        }
+
+        function adjustOrderProblemFontSize(problemElement) {
+            const parentContainer = problemElement.parentElement;
+            if (!parentContainer) return;
+
+            const containerWidth = parentContainer.clientWidth; // Renamed for clarity and consistency
+            let textWidth = problemElement.scrollWidth;
+
+            const buffer = 5;
+            if (textWidth > containerWidth - buffer) { // Use containerWidth
+                let currentFontSize = parseFloat(window.getComputedStyle(problemElement).fontSize); // Corrected typo
+                let newFontSize = currentFontSize * ((containerWidth - buffer) / textWidth); // Removed * 0.95 to allow max possible size
+
+                newFontSize = Math.max(newFontSize, 10);
+                problemElement.style.fontSize = `${newFontSize}px`; // Corrected string interpolation
+            }
+            
+        }
+        
+
+        window.onload = updatePreview;
+    </script>
+</body>
+</html>
