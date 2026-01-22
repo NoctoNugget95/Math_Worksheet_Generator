@@ -9,7 +9,7 @@
         :root {
             --primary: #000000;
             --secondary: #474747;
-            --input-bg-color: #d3d3d3; /* Default white for input backgrounds */
+            --input-bg-color: #d3d3d3; 
             --navy: #061E29;
         }
 
@@ -102,11 +102,12 @@
             border:#000000;
             border-radius: 25px;
             border-width: 4px;
-            padding: 12px;
+            padding: 8px 4px;
             font-weight: bold;
             transition: all 0.2s;
             flex: 1;
             text-align: center;
+            font-size: 0.8rem;
         }
         .tab-btn.active {
             border-bottom-color: var(--primary);
@@ -140,33 +141,42 @@
             }
             body { overflow: visible; height: auto; }
             .page-container::after { display: none; }
+            /* Hide Modal in Print */
+            #printModal { display: none !important; }
         }
 
         .worksheet-title-display {
-            color: black
+            color: black;
+            border-bottom: 1px solid transparent; 
+        }
+        .worksheet-title-display:hover {
+            background-color: rgba(0,0,0,0.03);
+            cursor: text;
+            border-radius: 4px;
+        }
+        .worksheet-title-display:focus {
+            outline: none;
+            border-bottom-color: var(--primary);
+            background-color: rgba(0,0,0,0.03);
         }
 
-        /* Apply custom border color to all relevant input types */
         input[type="text"],
         input[type="number"],
         select {
-            border-color: var(--input-border-color); /* Apply custom border color */
-            background-color: var(--input-bg-color); /* Apply custom background color */
+            border-color: var(--input-border-color); 
+            background-color: var(--input-bg-color); 
         }
 
-        /* Apply custom background color to selection box labels */
         #sidebar label.flex.items-center.gap-2 {
             background-color: var(--input-bg-color);
         }
 
-
         .worksheet-grid {
             display: grid;
             width: 100%;
-           /* background-color: #661d1d; /* Light gray shade to visualize the grid area */
-            /* Auto-fit height based on content */            column-gap: 1rem; /* Adjusted to maximize problem width and reduce right-side negative space */
-            row-gap: 2rem;    /* Reduced to allow more problems to fit vertically on the page */
-            align-content: start; /* Problems start from the top, consistent with row-gap */
+            column-gap: 1rem; 
+            row-gap: 2rem;    
+            align-content: start; 
             box-sizing: border-box;
             flex-grow: 1;
         }
@@ -177,8 +187,8 @@
             min-height: 90px;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start; /* Keep content at the top of the card */
-            align-items: center; /* Center content horizontally within the card */
+            justify-content: flex-start; 
+            align-items: center; 
             overflow: visible; 
         }
 
@@ -223,6 +233,20 @@
         .fraction .den { padding: 0 2px; }
         .mixed-number { display: inline-flex; align-items: center; font-size: 1em; }
         .format-subgroup { margin-left: 1.5rem; padding: 0.5rem; border-left: 2px solid #e2e8f0; margin-top: 0.25rem; font-size: 0.75rem; }
+        
+        /* New Styles for Operation Settings */
+        .op-settings-panel {
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            background-color: #f1f5f9;
+            border-radius: 0.375rem;
+            border-left: 3px solid var(--secondary);
+            font-size: 0.8rem;
+        }
+        .op-settings-panel input, .op-settings-panel select {
+            background-color: white;
+            font-size: 0.75rem;
+        }
     </style>
 </head>
 <body class="flex flex-col md:flex-row h-screen w-screen overflow-hidden">
@@ -232,9 +256,10 @@
             <h1 class="text-2xl font-bold heading-primary">Worksheet Generator</h1>
         </header>
 
-        <div class="flex border-b mb-6 no-print">
+        <div class="flex border-b mb-6 no-print gap-1">
             <button onclick="switchMode('arithmetic')" id="tabArith" class="tab-btn active">Arithmetic</button>
-            <button onclick="switchMode('order')" id="tabOrder" class="tab-btn">Order of Operations</button>
+            <button onclick="switchMode('numberSense')" id="tabSense" class="tab-btn">Number Sense</button>
+            <button onclick="switchMode('order')" id="tabOrder" class="tab-btn">Order of Ops</button>
         </div>
 
         <div class="space-y-6 flex-1 text-sm">
@@ -245,16 +270,318 @@
                        oninput="syncTitle()">
             </section>
 
+            <!-- ================= NUMBER SENSE CONTROLS ================= -->
+            <div id="numberSenseControls" class="hidden space-y-6">
+                 <!-- Module Selection -->
+                 <div class="mb-4">
+                     <p class="font-bold mb-2">Select Skill Module</p>
+                     <select id="senseModule" class="w-full p-2 rounded border border-gray-300" onchange="updateNumberSenseUI()">
+                         <option value="compare">Comparing & Ordering</option>
+                         <option value="forms">Place Value & Forms</option>
+                         <option value="rounding">Rounding</option>
+                         <option value="patterns">Patterns & Powers of 10</option>
+                     </select>
+                 </div>
+
+                 <!-- MODULE: Comparing & Ordering -->
+                 <div id="mod_compare" class="space-y-4">
+                    <div class="bg-white rounded border border-gray-200 p-3">
+                         <p class="font-bold text-navy mb-2">Task Type</p>
+                         <div class="flex flex-col gap-2 mb-3">
+                             <div class="flex gap-4">
+                                 <label class="flex items-center gap-2"><input type="radio" name="compType" value="compare" checked onchange="toggleOrderSettings(); updatePreview()"> Compare (>, <, =)</label>
+                                 <label class="flex items-center gap-2"><input type="radio" name="compType" value="order" onchange="toggleOrderSettings(); updatePreview()"> Order List</label>
+                             </div>
+                             <!-- NEW ORDER DIRECTION SETTINGS -->
+                             <div id="orderSettings" class="hidden pl-6 mt-1 space-y-1 border-l-2 border-gray-300">
+                                 <label class="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase mb-1">Direction</label>
+                                 <label class="flex items-center gap-2 text-sm"><input type="radio" name="orderDir" value="asc" checked onchange="updatePreview()"> Least to Greatest</label>
+                                 <label class="flex items-center gap-2 text-sm"><input type="radio" name="orderDir" value="desc" onchange="updatePreview()"> Greatest to Least</label>
+                             </div>
+                         </div>
+                         
+                         <p class="font-bold text-navy mb-2 mt-4">Number Types</p>
+                         <div class="space-y-2">
+                             <label class="flex items-center gap-2"><input type="checkbox" id="ns_comp_int" checked onchange="updatePreview()"> Whole Numbers</label>
+                             
+                             <!-- Granular Decimal Controls -->
+                             <div class="pl-2 border-l-2 border-gray-200 py-1 bg-gray-50 rounded-r">
+                                 <p class="text-xs font-bold text-gray-500 mb-1">Decimals</p>
+                                 <div class="grid grid-cols-2 gap-2">
+                                     <label class="flex items-center gap-1 text-xs"><input type="checkbox" id="ns_comp_dec_1" onchange="updatePreview()"> Tenths</label>
+                                     <label class="flex items-center gap-1 text-xs"><input type="checkbox" id="ns_comp_dec_2" onchange="updatePreview()"> Hundredths</label>
+                                     <label class="flex items-center gap-1 text-xs"><input type="checkbox" id="ns_comp_dec_3" onchange="updatePreview()"> Thousandths</label>
+                                 </div>
+                             </div>
+
+                             <label class="flex items-center gap-2"><input type="checkbox" id="ns_comp_neg" onchange="updatePreview()"> Negatives (Integers)</label>
+                             <label class="flex items-center gap-2 border-t pt-2 mt-2"><input type="checkbox" id="ns_comp_abs" onchange="updatePreview()"> Include Absolute Value (|x|)</label>
+                         </div>
+
+                         <!-- NEW: Digit & Range Controls -->
+                         <div class="mt-3 border-t pt-3">
+                            <p class="font-bold text-navy mb-2 text-xs uppercase">Complexity</p>
+                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                <div>
+                                    <label>Max Digits</label>
+                                    <input type="number" id="ns_comp_max_digits" value="3" min="1" max="9" class="w-full border rounded p-1" onchange="updatePreview()">
+                                </div>
+                                <div id="ns_comp_count_wrapper" class="hidden">
+                                    <label>Items to Order</label>
+                                    <input type="number" id="ns_comp_count" value="4" min="3" max="8" class="w-full border rounded p-1" onchange="updatePreview()">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label>Min Val</label><input type="number" id="ns_comp_min" placeholder="0" class="w-full border rounded p-1" onchange="updatePreview()"></div>
+                                <div><label>Max Val</label><input type="number" id="ns_comp_max" placeholder="Auto" class="w-full border rounded p-1" onchange="updatePreview()"></div>
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+
+                 <!-- MODULE: Place Value & Forms -->
+                 <div id="mod_forms" class="hidden space-y-4">
+                     <div class="bg-white rounded border border-gray-200 p-3">
+                         <p class="font-bold text-navy mb-2">Conversion Task</p>
+                         <select id="formTask" class="w-full p-2 rounded border mb-3" onchange="updatePreview()">
+                             <option value="expanded">Standard to Expanded Form</option>
+                             <option value="standard">Expanded to Standard Form</option>
+                             <option value="underline">Value of Underlined Digit</option>
+                         </select>
+
+                         <div class="mt-3 border-t pt-3">
+                            <p class="font-bold text-navy mb-2 text-xs uppercase">Range Settings</p>
+                            <div class="grid grid-cols-3 gap-2 mb-2">
+                                <!-- UPDATED: Removed value="100" and value="999" to allow dynamic Max Digits logic -->
+                                <div><label>Max Digits</label><input type="number" id="ns_form_max_digits" value="3" min="1" class="w-full border rounded p-1" onchange="updatePreview()"></div>
+                                <div><label>Min</label><input type="number" id="ns_form_min" placeholder="Auto" class="w-full border rounded p-1" onchange="updatePreview()"></div>
+                                <div><label>Max</label><input type="number" id="ns_form_max" placeholder="Auto" class="w-full border rounded p-1" onchange="updatePreview()"></div>
+                            </div>
+                        </div>
+                     </div>
+                 </div>
+
+                 <!-- MODULE: Rounding -->
+                 <div id="mod_rounding" class="hidden space-y-4">
+                    <div class="bg-white rounded border border-gray-200 p-3">
+                        <p class="font-bold text-navy mb-2">Target Place Value</p>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2"><input type="radio" name="roundTarget" value="10" checked onchange="updatePreview()"> Nearest 10</label>
+                            <label class="flex items-center gap-2"><input type="radio" name="roundTarget" value="100" onchange="updatePreview()"> Nearest 100</label>
+                            <label class="flex items-center gap-2"><input type="radio" name="roundTarget" value="1000" onchange="updatePreview()"> Nearest 1,000</label>
+                            <label class="flex items-center gap-2"><input type="radio" name="roundTarget" value="1" onchange="updatePreview()"> Nearest Whole (Decimal)</label>
+                            <label class="flex items-center gap-2"><input type="radio" name="roundTarget" value="0.1" onchange="updatePreview()"> Nearest Tenth</label>
+                        </div>
+
+                        <!-- NEW: Digit & Range Controls -->
+                        <div class="mt-3 border-t pt-3">
+                            <p class="font-bold text-navy mb-2 text-xs uppercase">Number Range</p>
+                            <div class="grid grid-cols-3 gap-2 mb-2">
+                                <div><label>Digits</label><input type="number" id="ns_round_digits" value="3" min="1" class="w-full border rounded p-1" onchange="updatePreview()"></div>
+                                <div><label>Min</label><input type="number" id="ns_round_min" placeholder="Auto" class="w-full border rounded p-1" onchange="updatePreview()"></div>
+                                <div><label>Max</label><input type="number" id="ns_round_max" placeholder="Auto" class="w-full border rounded p-1" onchange="updatePreview()"></div>
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+
+                 <!-- MODULE: Patterns & Powers of 10 -->
+                 <div id="mod_patterns" class="hidden space-y-4">
+                    <div class="bg-white rounded border border-gray-200 p-3">
+                        <p class="font-bold text-navy mb-2">Skill</p>
+                        <select id="patSkill" class="w-full p-2 rounded border mb-3" onchange="updateNumberSenseUI(); updatePreview()">
+                            <option value="skip">Skip Counting</option>
+                            <option value="powers">Powers of 10 Ops</option>
+                        </select>
+
+                        <div id="sub_skip">
+                             <label>Count By:</label>
+                             <select id="skipCountBy" class="w-full border rounded p-1 mb-2" onchange="updatePreview()">
+                                 <option value="2">2s</option>
+                                 <option value="5">5s</option>
+                                 <option value="10">10s</option>
+                                 <option value="100">100s</option>
+                                 <option value="random">Random (2-10)</option>
+                             </select>
+                             <div class="grid grid-cols-2 gap-2">
+                                <div><label>Start Min</label><input type="number" id="skipMin" value="0" class="w-full border rounded p-1" onchange="updatePreview()"></div>
+                                <div><label>Start Max</label><input type="number" id="skipMax" value="100" class="w-full border rounded p-1" onchange="updatePreview()"></div>
+                            </div>
+                        </div>
+
+                        <div id="sub_powers" class="hidden">
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-2"><input type="checkbox" id="pow_mult" checked onchange="updatePreview()"> Multiply</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" id="pow_div" onchange="updatePreview()"> Divide</label>
+                                <label class="flex items-center gap-2 border-t pt-2 mt-2 font-bold"><input type="checkbox" id="pow_exp" onchange="updatePreview()"> Use Exponents (10³)</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" id="pow_dec" checked onchange="updatePreview()"> Include Decimals</label>
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+            </div>
+
             <!-- ================= ARITHMETIC CONTROLS ================= -->
             <div id="arithmeticControls" class="space-y-6">
+                
+                 <!-- Distribution Controls -->
+                <div class="mb-3 pb-3 border-b border-gray-200">
+                    <p class="text-[10px] font-bold text-gray-500 uppercase mb-2">Distribution</p>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer text-xs">
+                            <input type="radio" name="opDist" value="mixed" checked onchange="updatePreview()"> Mix Randomly
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-xs">
+                            <input type="radio" name="opDist" value="grouped" onchange="updatePreview()"> Group by Type
+                        </label>
+                    </div>
+                </div>
+
                 <section>
-                    <h2 class="font-bold heading-primary mb-2">Operations</h2>
-                    <div class="grid grid-cols-1 gap-2">
-                        <label class="flex items-center gap-2 p-2 rounded bg-cloud cursor-pointer"><input type="checkbox" name="ops" value="addition" checked> Addition</label>
-                        <label class="flex items-center gap-2 p-2 rounded bg-cloud cursor-pointer"><input type="checkbox" name="ops" value="subtraction"> Subtraction</label>
-                        <label class="flex items-center gap-2 p-2 rounded bg-cloud cursor-pointer"><input type="checkbox" name="ops" value="multiplication"> Multiplication</label>
-                        <label class="flex items-center gap-2 p-2 rounded bg-cloud cursor-pointer"><input type="checkbox" name="ops" value="division"> Division</label>
-                        <label class="flex items-center gap-2 p-2 rounded bg-teal-100 cursor-pointer"><input type="checkbox" id="modeFractions"> <strong>Fractions</strong></label>
+                    <h2 class="font-bold heading-primary mb-2">Operations & Logic</h2>
+                    
+                    <label class="flex items-center gap-2 p-2 mt-2 rounded bg-teal-100 cursor-pointer mb-4">
+                        <input type="checkbox" id="modeFractions"> <strong>Enable Fractions Module</strong>
+                    </label>
+
+                    <div id="opContainer" class="space-y-3">
+                        <!-- ADDITION -->
+                        <div class="bg-white rounded border border-gray-200 p-2">
+                            <label class="flex items-center gap-2 cursor-pointer font-bold text-navy">
+                                <input type="checkbox" name="ops" value="addition" checked onchange="toggleOpSettings(this)"> Addition
+                            </label>
+                            <div id="settings_addition" class="op-settings-panel">
+                                <div class="flex justify-between items-center mb-2">
+                                   <label class="text-xs font-bold uppercase text-gray-500">Digit Settings</label>
+                                   <label class="flex items-center gap-1 text-xs cursor-pointer text-navy font-bold">
+                                       <input type="checkbox" id="addition_useMaxDigits" onchange="toggleDigitLabels('addition')"> Vary Length (Max)
+                                   </label>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mb-2">
+                                    <div><label id="addition_lblTop" class="text-xs">Fixed Top</label><input type="number" id="addition_digitsTop" value="2" min="1" class="w-full border rounded p-1"></div>
+                                    <div><label id="addition_lblBot" class="text-xs">Fixed Bot</label><input type="number" id="addition_digitsBottom" value="2" min="1" class="w-full border rounded p-1"></div>
+                                </div>
+                                <!-- NEW: Max Sum Control for Addition -->
+                                <div class="mb-2">
+                                    <label class="text-xs">Max Result (Sum)</label>
+                                    <input type="number" id="addition_maxResult" placeholder="e.g. 20 (No Limit)" class="w-full border rounded p-1">
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mb-2">
+                                    <div><label>Min</label><input type="number" id="addition_rangeMin" placeholder="Auto" class="w-full border rounded p-1"></div>
+                                    <div><label>Max</label><input type="number" id="addition_rangeMax" placeholder="Auto" class="w-full border rounded p-1"></div>
+                                </div>
+                                <select id="addition_numType" class="w-full border rounded p-1" onchange="togglePrecision('addition')">
+                                    <option value="integers">Integers</option>
+                                    <option value="decimals">Decimals</option>
+                                </select>
+                                <select id="addition_precision" class="w-full border rounded p-1 mt-1 hidden">
+                                    <option value="1">Tenths</option>
+                                    <option value="2">Hundredths</option>
+                                    <option value="3">Thousandths</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- SUBTRACTION -->
+                        <div class="bg-white rounded border border-gray-200 p-2">
+                            <label class="flex items-center gap-2 cursor-pointer font-bold text-navy">
+                                <input type="checkbox" name="ops" value="subtraction" onchange="toggleOpSettings(this)"> Subtraction
+                            </label>
+                            <div id="settings_subtraction" class="op-settings-panel hidden">
+                                <div class="flex justify-between items-center mb-2">
+                                   <label class="text-xs font-bold uppercase text-gray-500">Digit Settings</label>
+                                   <label class="flex items-center gap-1 text-xs cursor-pointer text-navy font-bold">
+                                       <input type="checkbox" id="subtraction_useMaxDigits" onchange="toggleDigitLabels('subtraction')"> Vary Length (Max)
+                                   </label>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mb-2">
+                                    <div><label id="subtraction_lblTop" class="text-xs">Fixed Top</label><input type="number" id="subtraction_digitsTop" value="2" min="1" class="w-full border rounded p-1"></div>
+                                    <div><label id="subtraction_lblBot" class="text-xs">Fixed Bot</label><input type="number" id="subtraction_digitsBottom" value="2" min="1" class="w-full border rounded p-1"></div>
+                                </div>
+                                <!-- NEW: Max Start Value Control for Subtraction -->
+                                <div class="mb-2">
+                                    <label class="text-xs">Max Start Value</label>
+                                    <input type="number" id="subtraction_maxResult" placeholder="e.g. 20 (No Limit)" class="w-full border rounded p-1">
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mb-2">
+                                    <div><label>Min</label><input type="number" id="subtraction_rangeMin" placeholder="Auto" class="w-full border rounded p-1"></div>
+                                    <div><label>Max</label><input type="number" id="subtraction_rangeMax" placeholder="Auto" class="w-full border rounded p-1"></div>
+                                </div>
+                                <select id="subtraction_numType" class="w-full border rounded p-1" onchange="togglePrecision('subtraction')">
+                                    <option value="integers">Integers</option>
+                                    <option value="decimals">Decimals</option>
+                                </select>
+                                <select id="subtraction_precision" class="w-full border rounded p-1 mt-1 hidden">
+                                    <option value="1">Tenths</option>
+                                    <option value="2">Hundredths</option>
+                                    <option value="3">Thousandths</option>
+                                </select>
+                            </div>
+                        </div>
+
+                         <!-- MULTIPLICATION -->
+                         <div class="bg-white rounded border border-gray-200 p-2">
+                            <label class="flex items-center gap-2 cursor-pointer font-bold text-navy">
+                                <input type="checkbox" name="ops" value="multiplication" onchange="toggleOpSettings(this)"> Multiplication
+                            </label>
+                            <div id="settings_multiplication" class="op-settings-panel hidden">
+                                <div class="flex justify-between items-center mb-2">
+                                   <label class="text-xs font-bold uppercase text-gray-500">Digit Settings</label>
+                                   <label class="flex items-center gap-1 text-xs cursor-pointer text-navy font-bold">
+                                       <input type="checkbox" id="multiplication_useMaxDigits" onchange="toggleDigitLabels('multiplication')"> Vary Length (Max)
+                                   </label>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mb-2">
+                                    <div><label id="multiplication_lblTop" class="text-xs">Fixed Top</label><input type="number" id="multiplication_digitsTop" value="2" min="1" class="w-full border rounded p-1"></div>
+                                    <div><label id="multiplication_lblBot" class="text-xs">Fixed Bot</label><input type="number" id="multiplication_digitsBottom" value="1" min="1" class="w-full border rounded p-1"></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mb-2">
+                                    <div><label>Min</label><input type="number" id="multiplication_rangeMin" placeholder="Auto" class="w-full border rounded p-1"></div>
+                                    <div><label>Max</label><input type="number" id="multiplication_rangeMax" placeholder="Auto" class="w-full border rounded p-1"></div>
+                                </div>
+                                <select id="multiplication_numType" class="w-full border rounded p-1" onchange="togglePrecision('multiplication')">
+                                    <option value="integers">Integers</option>
+                                    <option value="decimals">Decimals</option>
+                                </select>
+                                <select id="multiplication_precision" class="w-full border rounded p-1 mt-1 hidden">
+                                    <option value="1">Tenths</option>
+                                    <option value="2">Hundredths</option>
+                                    <option value="3">Thousandths</option>
+                                </select>
+                            </div>
+                        </div>
+
+                         <!-- DIVISION -->
+                         <div class="bg-white rounded border border-gray-200 p-2">
+                            <label class="flex items-center gap-2 cursor-pointer font-bold text-navy">
+                                <input type="checkbox" name="ops" value="division" onchange="toggleOpSettings(this)"> Division
+                            </label>
+                            <div id="settings_division" class="op-settings-panel hidden">
+                                <div class="flex justify-between items-center mb-2">
+                                   <label class="text-xs font-bold uppercase text-gray-500">Digit Settings</label>
+                                   <label class="flex items-center gap-1 text-xs cursor-pointer text-navy font-bold">
+                                       <input type="checkbox" id="division_useMaxDigits" onchange="toggleDigitLabels('division')"> Vary Length (Max)
+                                   </label>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mb-2">
+                                    <div><label id="division_lblTop" class="text-xs">Fixed Top</label><input type="number" id="division_digitsTop" value="2" min="1" class="w-full border rounded p-1"></div>
+                                    <div><label id="division_lblBot" class="text-xs">Fixed Bot</label><input type="number" id="division_digitsBottom" value="1" min="1" class="w-full border rounded p-1"></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mb-2">
+                                    <div><label>Min</label><input type="number" id="division_rangeMin" placeholder="Auto" class="w-full border rounded p-1"></div>
+                                    <div><label>Max</label><input type="number" id="division_rangeMax" placeholder="Auto" class="w-full border rounded p-1"></div>
+                                </div>
+                                <select id="division_numType" class="w-full border rounded p-1" onchange="togglePrecision('division')">
+                                    <option value="integers">Integers</option>
+                                    <option value="decimals">Decimals</option>
+                                </select>
+                                <select id="division_precision" class="w-full border rounded p-1 mt-1 hidden">
+                                    <option value="1">Tenths</option>
+                                    <option value="2">Hundredths</option>
+                                    <option value="3">Thousandths</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -311,39 +638,6 @@
                     </div>
                 </section>
 
-                <!-- Standard Number Logic -->
-                <section id="standardSettings">
-                    <h2 class="font-bold heading-primary mb-2">Number Logic</h2>
-                    <div class="space-y-3">
-                        <div class="flex gap-2">
-                            <select id="numType" class="w-full p-2 rounded border border-gray-300">
-                                <option value="integers">Integers Only</option>
-                                <option value="decimals">Decimals</option>
-                            </select>
-                            <select id="precision" class="w-full p-2 rounded border border-gray-300 hidden">
-                                <option value="1">Tenths</option>
-                                <option value="2">Hundredths</option>
-                                <option value="3">Thousandths</option>
-                            </select>
-                        </div>
-
-                        <div class="p-3 border rounded border-gray-100">
-                            <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">Digits</p>
-                            <div class="flex items-center justify-between gap-2">
-                                <div class="flex-1"><label class="text-[10px]">First Term (Top)</label><input type="number" id="digitsTop" value="2" min="1" max="6" class="w-full p-1 border rounded"></div>
-                                <div class="flex-1"><label class="text-[10px]">Second Term (Bottom)</label><input type="number" id="digitsBottom" value="2" min="1" max="6" class="w-full p-1 border rounded"></div>
-                            </div>
-                        </div>
-
-                        <div class="p-3 border rounded border-gray-100">
-                            <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">Number Range</p>
-                            <div class="flex gap-2">
-                                <input type="number" id="rangeMin" placeholder="Min" class="w-full p-1 border rounded">
-                                <input type="number" id="rangeMax" placeholder="Max" class="w-full p-1 border rounded">
-                            </div>
-                        </div>
-                    </div>
-                </section>
 
                 <!-- Layout & Style -->
                 <section>
@@ -447,7 +741,7 @@
 
         <div class="mt-6 pt-6 border-t space-y-2">
             <button onclick="updatePreview()" class="w-full py-3 bg-primary text-white font-bold rounded hover:opacity-90 transition uppercase tracking-wide">Generate</button>
-            <button onclick="window.print()" class="w-full py-3 border-2 border-teal text-navy font-bold rounded hover:bg-gray-50 transition">Print</button>
+            <button onclick="openPrintModal()" class="w-full py-3 border-2 border-teal text-navy font-bold rounded hover:bg-gray-50 transition">Print</button>
         </div>
     </aside>
 
@@ -461,6 +755,22 @@
         <div id="page-wrapper" class="flex flex-col items-center gap-10 w-full"></div>
     </main>
 
+    <!-- PRINT CONFIRMATION MODAL -->
+    <div id="printModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-[100] no-print backdrop-blur-sm">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4 border border-gray-200">
+            <h3 class="text-xl font-bold mb-4 heading-primary">Check Worksheet Title</h3>
+            <div class="bg-gray-100 p-4 rounded mb-4">
+                <p class="text-xs text-gray-500 uppercase font-bold mb-1">Current Title</p>
+                <p id="printTitlePreview" class="font-serif text-lg font-bold text-black border-l-4 border-red-700 pl-3"></p>
+            </div>
+            <p class="mb-6 text-sm text-gray-600">Please verify the title is correct before printing. You can edit it in the sidebar.</p>
+            <div class="flex justify-end gap-3">
+                <button onclick="closePrintModal()" class="px-4 py-2 border rounded hover:bg-gray-50 font-bold text-gray-600">Cancel</button>
+                <button onclick="finalizePrint()" class="px-4 py-2 bg-primary text-white font-bold rounded hover:opacity-90 shadow-md">Yes, Print</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentMode = 'arithmetic';
         let currentZoom = 1.0;
@@ -471,11 +781,13 @@
             titleInput: document.getElementById('customTitleInput'),
             modeFractions: document.getElementById('modeFractions'),
             fracSettings: document.getElementById('fractionSettings'),
-            stdSettings: document.getElementById('standardSettings'),
+            opContainer: document.getElementById('opContainer'), 
             arithControls: document.getElementById('arithmeticControls'),
             orderControls: document.getElementById('orderControls'),
+            senseControls: document.getElementById('numberSenseControls'),
             tabArith: document.getElementById('tabArith'),
             tabOrder: document.getElementById('tabOrder'),
+            tabSense: document.getElementById('tabSense'),
             zoomLevel: document.getElementById('zoom-level'),
             // Toggles
             fmtWhole: document.getElementById('fmtWhole'),
@@ -484,8 +796,9 @@
             improperOptions: document.getElementById('improperOptions'),
             fmtMixed: document.getElementById('fmtMixed'),
             mixedOptions: document.getElementById('mixedOptions'),
-            numType: document.getElementById('numType'),
-            precision: document.getElementById('precision')
+            // Modal
+            printModal: document.getElementById('printModal'),
+            printTitlePreview: document.getElementById('printTitlePreview')
         };
 
         // UI Event Listeners
@@ -493,22 +806,111 @@
             currentMode = mode;
             ui.tabArith.classList.toggle('active', mode === 'arithmetic');
             ui.tabOrder.classList.toggle('active', mode === 'order');
+            ui.tabSense.classList.toggle('active', mode === 'numberSense');
+            
             ui.arithControls.classList.toggle('hidden', mode !== 'arithmetic');
             ui.orderControls.classList.toggle('hidden', mode !== 'order');
+            ui.senseControls.classList.toggle('hidden', mode !== 'numberSense');
         }
 
         ui.modeFractions.addEventListener('change', (e) => {
-            ui.fracSettings.classList.toggle('hidden', !e.target.checked);
-            ui.stdSettings.classList.toggle('hidden', e.target.checked);
+            const isFrac = e.target.checked;
+            ui.fracSettings.classList.toggle('hidden', !isFrac);
+            
+            // Toggle visibility of internal settings panels only, keeping checkboxes visible
+            const panels = document.querySelectorAll('.op-settings-panel');
+            if (isFrac) {
+                panels.forEach(p => p.classList.add('hidden'));
+            } else {
+                // Restore visibility for checked operations
+                document.querySelectorAll('input[name="ops"]').forEach(cb => {
+                    const panel = document.getElementById(`settings_${cb.value}`);
+                    if (panel) {
+                        if (cb.checked) panel.classList.remove('hidden');
+                        else panel.classList.add('hidden');
+                    }
+                });
+            }
+            updatePreview();
         });
 
         ui.fmtWhole.addEventListener('change', (e) => ui.wholeOptions.classList.toggle('hidden', !e.target.checked));
         ui.fmtImproper.addEventListener('change', (e) => ui.improperOptions.classList.toggle('hidden', !e.target.checked));
         ui.fmtMixed.addEventListener('change', (e) => ui.mixedOptions.classList.toggle('hidden', !e.target.checked));
         
-        ui.numType.addEventListener('change', () => {
-            ui.precision.classList.toggle('hidden', ui.numType.value !== 'decimals');
+        function toggleOpSettings(checkbox) {
+            // If in fractions mode, we don't show the integer settings panel
+            if (ui.modeFractions.checked) {
+                updatePreview();
+                return;
+            }
+
+            const panel = document.getElementById(`settings_${checkbox.value}`);
+            if (panel) {
+                if (checkbox.checked) panel.classList.remove('hidden');
+                else panel.classList.add('hidden');
+            }
+            updatePreview();
+        }
+
+        function togglePrecision(op) {
+            const type = document.getElementById(`${op}_numType`).value;
+            const prec = document.getElementById(`${op}_precision`);
+            if (type === 'decimals') prec.classList.remove('hidden');
+            else prec.classList.add('hidden');
+        }
+
+        // NEW: Toggle Order Settings visibility
+        function toggleOrderSettings() {
+            const isOrder = document.querySelector('input[name="compType"][value="order"]').checked;
+            const settings = document.getElementById('orderSettings');
+            const countWrapper = document.getElementById('ns_comp_count_wrapper');
+            if (settings) settings.classList.toggle('hidden', !isOrder);
+            if (countWrapper) countWrapper.classList.toggle('hidden', !isOrder);
+        }
+
+        // NEW: Toggle Arithmetic Digit Labels
+        function toggleDigitLabels(op) {
+            const isMax = document.getElementById(`${op}_useMaxDigits`).checked;
+            document.getElementById(`${op}_lblTop`).textContent = isMax ? "Max Top Digits" : "Fixed Top Digits";
+            document.getElementById(`${op}_lblBot`).textContent = isMax ? "Max Bot Digits" : "Fixed Bot Digits";
+            updatePreview();
+        }
+
+        function updateNumberSenseUI() {
+            const mod = document.getElementById('senseModule').value;
+            ['mod_compare', 'mod_forms', 'mod_rounding', 'mod_patterns'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(`mod_${mod}`).classList.remove('hidden');
+
+            // Sub-modules
+            if(mod === 'patterns') {
+                const patSkill = document.getElementById('patSkill').value;
+                document.getElementById('sub_skip').classList.toggle('hidden', patSkill !== 'skip');
+                document.getElementById('sub_powers').classList.toggle('hidden', patSkill !== 'powers');
+            }
+        }
+        
+        document.querySelectorAll('.op-settings-panel input, .op-settings-panel select').forEach(el => {
+            el.addEventListener('change', updatePreview);
+            el.addEventListener('input', updatePreview);
         });
+
+        // MODAL FUNCTIONS
+        function openPrintModal() {
+            ui.printTitlePreview.textContent = ui.titleInput.value || "Mathematics Assessment";
+            ui.printModal.classList.remove('hidden');
+        }
+
+        function closePrintModal() {
+            ui.printModal.classList.add('hidden');
+        }
+
+        function finalizePrint() {
+            closePrintModal();
+            window.print();
+        }
 
         function changeZoom(delta) {
             currentZoom = Math.min(Math.max(0.4, currentZoom + delta), 2.0);
@@ -520,8 +922,6 @@
             ui.zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
             document.querySelectorAll('.page-container').forEach(page => {
                 page.style.transform = `scale(${currentZoom})`;
-                // Calculate margin adjustment to remove gaps
-                // Standard page height is 11in = approx 1056px
                 const pageHeightPx = 1056; 
                 const margin = (pageHeightPx * (currentZoom - 1)) + 40;
                 page.style.marginBottom = `${margin}px`;
@@ -529,7 +929,10 @@
         }
         function syncTitle() {
             const title = ui.titleInput.value || "Mathematics Assessment";
-            document.querySelectorAll('.worksheet-title-display').forEach(el => el.textContent = title);
+            document.querySelectorAll('.worksheet-title-display').forEach(el => {
+                const isKey = el.getAttribute('data-is-key') === 'true';
+                el.textContent = (isKey ? "Answer Key - " : "") + title;
+            });
         }
 
         // Logic Helpers
@@ -540,6 +943,7 @@
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
+        // Generalized Value Generator
         function generateValue(digits, userMin, userMax, isDecimal, precision) {
             const digitMin = Math.pow(10, digits - 1);
             const digitMax = Math.pow(10, digits) - 1;
@@ -555,6 +959,32 @@
 
             const val = Math.random() * (finalMax - finalMin) + finalMin;
             return isDecimal ? parseFloat(val.toFixed(parseInt(precision))) : Math.floor(val);
+        }
+
+        // NEW: Specialized Arithmetic Operand Generator supporting Fixed vs Max
+        function generateArithmeticOperand(digits, useMax, userMin, userMax, isDecimal, precision) {
+            // If user provides specific ranges, prioritize them
+            if (userMin !== "" || userMax !== "") {
+                return generateValue(digits, userMin, userMax, isDecimal, precision);
+            }
+
+            // If "Use Max Digits" (Vary Length) is ON
+            if (useMax) {
+                // Weighted selection: Pick a digit count from 1 to 'digits'
+                const d = Math.floor(Math.random() * digits) + 1;
+                // Generate based on that specific length 'd'
+                const min = Math.pow(10, d - 1);
+                const max = Math.pow(10, d) - 1;
+                
+                let val = Math.random() * (max - min + 1) + min;
+                if (!isDecimal) val = Math.floor(val);
+                else val = parseFloat(val.toFixed(parseInt(precision)));
+                
+                return val;
+            } 
+            
+            // Standard Fixed Length Behavior
+            return generateValue(digits, userMin, userMax, isDecimal, precision);
         }
 
         function getFractionsData() {
@@ -642,19 +1072,81 @@
                 const ans = computeFractionAnswer(f1, f2, op);
                 return { f1, f2, op, type: 'fraction', answer: ans };
             } else {
-                const isDec = ui.numType.value === 'decimals';
-                const prec = document.getElementById('precision').value;
-                const tD = parseInt(document.getElementById('digitsTop').value);
-                const bD = parseInt(document.getElementById('digitsBottom').value);
-                const rMin = document.getElementById('rangeMin').value;
-                const rMax = document.getElementById('rangeMax').value;
+                const isDec = document.getElementById(`${op}_numType`).value === 'decimals';
+                const prec = document.getElementById(`${op}_precision`).value;
+                const tD = parseInt(document.getElementById(`${op}_digitsTop`).value);
+                const bD = parseInt(document.getElementById(`${op}_digitsBottom`).value);
+                const rMin = document.getElementById(`${op}_rangeMin`).value;
+                const rMax = document.getElementById(`${op}_rangeMax`).value;
+                
+                // NEW: Max Result / Max Start Value Logic
+                let maxRes = "";
+                if (op === 'addition') maxRes = document.getElementById('addition_maxResult').value;
+                if (op === 'subtraction') maxRes = document.getElementById('subtraction_maxResult').value;
 
-                let n1 = generateValue(tD, rMin, rMax, isDec, prec);
-                let n2 = generateValue(bD, rMin, rMax, isDec, prec);
+                // NEW: Check for Max Digits Mode
+                const useMax = document.getElementById(`${op}_useMaxDigits`)?.checked || false;
+
+                let n1, n2;
+                
+                // Logic for constrained sums (Addition)
+                if (op === 'addition' && maxRes !== "") {
+                    const limit = parseInt(maxRes);
+                    // Generate n1 first
+                    n1 = generateArithmeticOperand(tD, useMax, rMin, rMax, isDec, prec);
+                    // Ensure n1 is within limit (if n1 > limit, cap it or retry? simpliest is cap)
+                    if (n1 > limit) n1 = getRandomInt(1, limit); 
+                    
+                    // Generate n2 such that n1 + n2 <= limit
+                    const remaining = limit - n1;
+                    if (remaining < 0) { n1 = getRandomInt(1, limit); n2 = getRandomInt(1, limit - n1); } 
+                    else {
+                        // n2 must roughly match bD constraints but definitely be <= remaining
+                        // We generate a candidate for n2 normally first
+                        let candidateN2 = generateArithmeticOperand(bD, useMax, rMin, rMax, isDec, prec);
+                        if (candidateN2 > remaining) {
+                            // If generated n2 is too big, just pick random up to remaining
+                            n2 = getRandomInt(1, remaining);
+                        } else {
+                            n2 = candidateN2;
+                        }
+                    }
+                } 
+                // Logic for constrained start value (Subtraction)
+                else if (op === 'subtraction' && maxRes !== "") {
+                    const limit = parseInt(maxRes);
+                    // n1 (minuend) must be <= limit
+                    n1 = generateArithmeticOperand(tD, useMax, rMin, rMax, isDec, prec);
+                    if (n1 > limit) n1 = getRandomInt(1, limit);
+                    
+                    // n2 (subtrahend) must be <= n1
+                    let candidateN2 = generateArithmeticOperand(bD, useMax, rMin, rMax, isDec, prec);
+                    if (candidateN2 > n1) {
+                        n2 = getRandomInt(1, n1);
+                    } else {
+                        n2 = candidateN2;
+                    }
+                }
+                else {
+                    // Standard Logic
+                    n1 = generateArithmeticOperand(tD, useMax, rMin, rMax, isDec, prec);
+                    n2 = generateArithmeticOperand(bD, useMax, rMin, rMax, isDec, prec);
+                }
 
                 if (op === 'subtraction' && n2 > n1) [n1, n2] = [n2, n1];
                 if (op === 'division' && !document.getElementById('modeRemainders').checked) {
-                    n1 = n2 * getRandomInt(2, 12);
+                    // For division without remainders, we generate quotient and divisor then multiply
+                    // n1 (dividend) = n2 (divisor) * quotient
+                    // Here, tD usually refers to the dividend length, but generating multiplication problems in reverse is cleaner
+                    // Let's stick to standard generation: make n1 a multiple of n2
+                    if(useMax) {
+                         // Regenerate to ensure simple multiples don't blow out digit constraints too wildly
+                         // Actually, sticking to the standard "multiply back" is safer
+                         const q = getRandomInt(2, 12); // Simple quotient
+                         n1 = n2 * q; 
+                    } else {
+                         n1 = n2 * getRandomInt(2, 12);
+                    }
                 }
 
                 let ans;
@@ -672,9 +1164,221 @@
             }
         }
 
+        function generateNumberSenseProblem() {
+            const module = document.getElementById('senseModule').value;
+            
+            if (module === 'compare') {
+                const compType = document.querySelector('input[name="compType"]:checked').value;
+                const useInt = document.getElementById('ns_comp_int').checked;
+                
+                // Granular Decimal Logic
+                const useDec1 = document.getElementById('ns_comp_dec_1').checked;
+                const useDec2 = document.getElementById('ns_comp_dec_2').checked;
+                const useDec3 = document.getElementById('ns_comp_dec_3').checked;
+                const activeDecimals = [];
+                if (useDec1) activeDecimals.push(1);
+                if (useDec2) activeDecimals.push(2);
+                if (useDec3) activeDecimals.push(3);
+
+                const useNeg = document.getElementById('ns_comp_neg').checked;
+                const useAbs = document.getElementById('ns_comp_abs').checked;
+                
+                const maxDigits = parseInt(document.getElementById('ns_comp_max_digits').value) || 2;
+                const rMin = document.getElementById('ns_comp_min').value;
+                const rMax = document.getElementById('ns_comp_max').value;
+
+                const types = [];
+                if(useInt) types.push('int');
+                if(activeDecimals.length > 0) types.push('dec');
+                
+                // Fallback
+                if (types.length === 0) types.push('int');
+
+                const getNum = () => {
+                    const type = types[Math.floor(Math.random() * types.length)];
+                    let val;
+                    let precision = 0;
+
+                    if(type === 'dec') {
+                        precision = activeDecimals[Math.floor(Math.random() * activeDecimals.length)];
+                        // For decimals, we typically want the standard distribution, but let's constrain the whole number part
+                        // to ensure it doesn't blow out visually
+                        val = generateValue(maxDigits, rMin, rMax, true, precision);
+                    } else {
+                        // Integer logic with Weighted Digit Selection
+                        if (rMin === "" && rMax === "") {
+                            // 1. Randomly pick a digit count (e.g., 1, 2, or 3)
+                            const d = Math.floor(Math.random() * maxDigits) + 1;
+                            // 2. Generate a number with exactly 'd' digits
+                            const minD = Math.pow(10, d - 1);
+                            const maxD = Math.pow(10, d) - 1;
+                            val = Math.floor(Math.random() * (maxD - minD + 1)) + minD;
+                        } else {
+                            // User provided strict range, respect it
+                            val = generateValue(maxDigits, rMin, rMax, false, 0);
+                            if (!Number.isInteger(val)) val = Math.floor(val);
+                        }
+                    }
+                    
+                    if (useNeg && Math.random() > 0.5) val *= -1;
+                    
+                    return val;
+                }
+
+                if (compType === 'compare') {
+                    let n1 = getNum();
+                    let n2 = getNum();
+                    let d1 = n1, d2 = n2;
+                    let v1 = n1, v2 = n2;
+
+                    if (useAbs) {
+                        if (Math.random() > 0.6) { d1 = `|${n1}|`; v1 = Math.abs(n1); }
+                        if (Math.random() > 0.6) { d2 = `|${n2}|`; v2 = Math.abs(n2); }
+                    }
+
+                    let ans = "=";
+                    if(v1 > v2) ans = ">";
+                    if(v1 < v2) ans = "<";
+                    
+                    return { type: 'ns_compare', d1, d2, ans };
+                } else {
+                    let count = parseInt(document.getElementById('ns_comp_count').value) || 4;
+                    let nums = Array.from({length: count}, getNum);
+                    let displayNums = nums.map(n => {
+                         if(useAbs && Math.random() > 0.6) return { d: `|${n}|`, v: Math.abs(n) };
+                         return { d: n, v: n };
+                    });
+                    
+                    const dir = document.querySelector('input[name="orderDir"]:checked').value;
+                    let sorted = [...displayNums].sort((a,b) => {
+                         if(dir === 'asc') return a.v - b.v;
+                         return b.v - a.v;
+                    });
+                    
+                    let ans = sorted.map(i => i.d).join(', ');
+                    
+                    return { type: 'ns_order', items: displayNums.map(i => i.d), ans, dir };
+                }
+            }
+            
+            else if (module === 'forms') {
+                const task = document.getElementById('formTask').value;
+                const maxDigits = parseInt(document.getElementById('ns_form_max_digits').value) || 3;
+                const rMinStr = document.getElementById('ns_form_min').value;
+                const rMaxStr = document.getElementById('ns_form_max').value;
+                
+                let num;
+
+                // Weighted Digit Logic for Forms
+                if (rMinStr === "" && rMaxStr === "") {
+                    // Equal chance for any number of digits up to max
+                    const d = Math.floor(Math.random() * maxDigits) + 1;
+                    const minD = Math.pow(10, d - 1);
+                    const maxD = Math.pow(10, d) - 1;
+                    num = Math.floor(Math.random() * (maxD - minD + 1)) + minD;
+                } else {
+                    // Explicit range provided
+                    const limit = Math.pow(10, maxDigits) - 1;
+                    let min = rMinStr !== "" ? parseInt(rMinStr) : 1;
+                    let max = rMaxStr !== "" ? parseInt(rMaxStr) : limit;
+                    
+                    if (min > max) [min, max] = [max, min];
+                    num = Math.floor(Math.random() * (max - min + 1)) + min;
+                }
+
+                if (task === 'expanded') {
+                    const str = num.toString();
+                    const parts = [];
+                    for(let i=0; i<str.length; i++) {
+                        const digit = parseInt(str[i]);
+                        if(digit !== 0) parts.push(digit * Math.pow(10, str.length - 1 - i));
+                    }
+                    return { type: 'ns_forms', q: `${num}`, ans: parts.join(' + '), subType: 'toExpanded' };
+                } else if (task === 'standard') {
+                     const str = num.toString();
+                    const parts = [];
+                    for(let i=0; i<str.length; i++) {
+                        const digit = parseInt(str[i]);
+                        if(digit !== 0) parts.push(digit * Math.pow(10, str.length - 1 - i));
+                    }
+                    return { type: 'ns_forms', q: `${parts.join(' + ')}`, ans: num, subType: 'toStandard' };
+                } else if (task === 'underline') {
+                     const str = num.toString();
+                     const idx = Math.floor(Math.random() * str.length);
+                     const val = parseInt(str[idx]) * Math.pow(10, str.length - 1 - idx);
+                     const formatted = str.substring(0, idx) + `<u>${str[idx]}</u>` + str.substring(idx+1);
+                     return { type: 'ns_forms', q: `${formatted}`, ans: val, subType: 'underline' };
+                }
+            }
+            
+            else if (module === 'rounding') {
+                const target = parseFloat(document.querySelector('input[name="roundTarget"]:checked').value);
+                const digits = parseInt(document.getElementById('ns_round_digits').value) || 3;
+                const rMin = document.getElementById('ns_round_min').value;
+                const rMax = document.getElementById('ns_round_max').value;
+                
+                let num;
+                
+                if (target >= 1) {
+                    num = generateValue(digits, rMin, rMax, false, 0);
+                    if (num < target/2) num = getRandomInt(target/2, target*2);
+                } else {
+                     num = generateValue(digits, rMin, rMax, true, 3);
+                }
+
+                // Removed instructions from qText, now handled in Header
+                // Calculating answer
+                let factor = 1/target;
+                let ans = Math.round(num * factor) / factor;
+
+                return { type: 'ns_text', q: `${num}`, ans: ans };
+            }
+            
+            else if (module === 'patterns') {
+                const skill = document.getElementById('patSkill').value;
+                if (skill === 'skip') {
+                     let by = document.getElementById('skipCountBy').value;
+                     if(by === 'random') by = getRandomInt(2, 10);
+                     else by = parseInt(by);
+                     
+                     const start = getRandomInt(parseInt(document.getElementById('skipMin').value), parseInt(document.getElementById('skipMax').value));
+                     const seq = [start, start+by, start+by*2, start+by*3, start+by*4];
+                     const blankIdx = getRandomInt(1, 3); 
+                     const ans = seq[blankIdx];
+                     seq[blankIdx] = '____';
+                     return { type: 'ns_text', q: `Fill in the blank: ${seq.join(', ')}`, ans: ans };
+                } else {
+                    const useExp = document.getElementById('pow_exp').checked;
+                    const useMult = document.getElementById('pow_mult').checked;
+                    const useDiv = document.getElementById('pow_div').checked;
+                    const useDec = document.getElementById('pow_dec').checked;
+
+                    let op = '×';
+                    if (useMult && useDiv) op = Math.random() > 0.5 ? '×' : '÷';
+                    else if (useDiv) op = '÷';
+
+                    let base = getRandomInt(1, 900);
+                    if(useDec) base = parseFloat((Math.random() * 100).toFixed(2));
+                    
+                    let power = getRandomInt(1, 3); 
+                    let tenVal = Math.pow(10, power);
+                    
+                    let displayTen = tenVal;
+                    if(useExp) displayTen = `10<sup>${power}</sup>`;
+
+                    let ans;
+                    if(op === '×') ans = base * tenVal;
+                    else ans = base / tenVal;
+                    
+                    ans = parseFloat(ans.toFixed(4)); 
+
+                    return { type: 'ns_text', q: `${base} ${op} ${displayTen} =`, ans: ans };
+                }
+            }
+        }
+
         function formatAlgebraicAnswer(balance) {
             let terms = [];
-            // Round to avoid floating point weirdness
             const r = (n) => Math.round(n * 100) / 100;
             const b = { x2: r(balance.x2), x: r(balance.x), num: r(balance.num) };
 
@@ -714,7 +1418,7 @@
             const activeOps = Array.from(document.querySelectorAll('input[name="orderOps"]:checked')).map(i => i.value);
             if (!activeOps.length) activeOps.push('+');
 
-            let shouldDistribute = (distMode === 'all' || (distMode === 'mixed' && Math.random() > 0.5));
+            let balance = { 'num': 0, 'x': 0, 'x2': 0 };
             let expression = "";
             let substitutionVal = null;
 
@@ -723,9 +1427,6 @@
             } else if (substMode === 'individual') {
                 substitutionVal = Math.floor(Math.random() * 10) + 1;
             }
-
-            // --- BALANCE TRACKING ---
-            let balance = { 'num': 0, 'x': 0, 'x2': 0 };
 
             const getTermType = (termStr) => {
                 if (termStr.includes('x²')) return 'x2';
@@ -743,93 +1444,45 @@
                 return parseFloat(s);
             };
 
-            if (shouldDistribute && termsCount >= 3) {
-                const coeff = Math.floor(Math.random() * (maxVal / 2)) + 2;
-                
-                const innerTerms = [];
-                let op1 = '+'; 
+            let doDistributive = (distMode === 'all' || (distMode === 'mixed' && Math.random() > 0.5));
 
-                let val1 = Math.floor(Math.random() * maxVal) + 1;
-                let term1 = val1.toString();
-                if(useX2 && Math.random() > 0.7) term1 = `${val1}x²`;
-                else if(useX && Math.random() > 0.5) term1 = `${val1}x`;
-                
-                let type1 = getTermType(term1);
-                balance[type1] += parseVal(term1) * coeff;
-                innerTerms.push(term1);
+            if (doDistributive) {
+                let limitA = Math.max(2, Math.floor(maxVal/2));
+                let a = Math.floor(Math.random() * (limitA - 1)) + 2; 
 
-                op1 = activeOps[Math.floor(Math.random() * activeOps.length)];
-                
-                // Smart value gen for subtraction
-                let val2;
-                if (!allowNeg && op1 === '-') {
-                    val2 = Math.floor(Math.random() * (val1 - 1)) + 1; 
-                    if (val2 < 1) val2 = 1;
+                let b = Math.floor(Math.random() * maxVal) + 1; 
+                let c = Math.floor(Math.random() * maxVal) + 1; 
+
+                let varTermType = 'num';
+                if (useX2 && (Math.random() > 0.5 || !useX)) varTermType = 'x2';
+                else if (useX) varTermType = 'x';
+
+                let strB = (b === 1 && varTermType !== 'num') ? "" : b; 
+                let termVar = strB + (varTermType === 'x2' ? 'x²' : (varTermType === 'x' ? 'x' : ''));
+                if (varTermType === 'num') termVar = b.toString(); 
+
+                let termConst = c.toString();
+
+                let op = Math.random() > 0.5 ? '+' : '-';
+
+                let isVarFirst = Math.random() > 0.5;
+                let t1 = isVarFirst ? termVar : termConst;
+                let t2 = isVarFirst ? termConst : termVar;
+
+                expression = `${a}(${t1} ${op} ${t2})`;
+
+                if (isVarFirst) {
+                    balance[varTermType] += a * b;
+                    if (op === '+') balance['num'] += a * c;
+                    else balance['num'] -= a * c;
                 } else {
-                    val2 = Math.floor(Math.random() * maxVal) + 1;
-                }
-
-                let term2 = val2.toString();
-                if(useX2 && Math.random() > 0.7) term2 = `${val2}x²`;
-                else if(useX && Math.random() > 0.5) term2 = `${val2}x`;
-                
-                let type2 = getTermType(term2);
-                let amt2 = parseVal(term2) * coeff;
-
-                if (!allowNeg && op1 === '-') {
-                    if (type1 === type2) {
-                        if (val1 < parseVal(term2)) {
-                            op1 = '+';
-                            balance[type2] += amt2;
-                        } else {
-                            balance[type2] -= amt2;
-                        }
-                    } else {
-                        balance[type2] -= amt2;
-                    }
-                } else {
-                    if (op1 === '-') balance[type2] -= amt2;
-                    else balance[type2] += amt2;
-                }
-                innerTerms.push(term2);
-
-                expression = `${coeff}(${innerTerms[0]} ${op1} ${innerTerms[1]})`;
-                
-                for(let k = 2; k < termsCount; k++) {
-                    let nextOp = activeOps[Math.floor(Math.random() * activeOps.length)];
-                    // Force + or - if variables are present to ensure balance tracking works for simplification
-                    if (hasVariables && nextOp !== '+' && nextOp !== '-') {
-                        nextOp = Math.random() > 0.5 ? '+' : '-';
-                    }
-
-                    let type = (useX2 && Math.random()>0.7) ? 'x2' : (useX && Math.random()>0.5) ? 'x' : 'num';
-                    
-                    let amt;
-                    if (!allowNeg && nextOp === '-') {
-                        let maxAmt = Math.floor(balance[type]);
-                        if (maxAmt < 1) {
-                            nextOp = '+';
-                            amt = Math.floor(Math.random() * maxVal) + 1;
-                        } else {
-                            amt = Math.floor(Math.random() * maxAmt) + 1;
-                        }
-                    } else {
-                        amt = Math.floor(Math.random() * maxVal) + 1;
-                    }
-
-                    let term = amt.toString();
-                    if (type === 'x2') term += 'x²';
-                    else if (type === 'x') term += 'x';
-
-                    if (nextOp === '-') balance[type] -= amt;
-                    else balance[type] += amt;
-                    
-                    expression += ` ${nextOp} ${term}`;
+                    balance['num'] += a * c;
+                    if (op === '+') balance[varTermType] += a * b;
+                    else balance[varTermType] -= a * b;
                 }
 
             } else {
                 const parts = [];
-                // First term
                 let val = Math.floor(Math.random() * maxVal) + 1;
                 let term = val.toString();
                 if (useOrderFrac && Math.random() > 0.6) {
@@ -844,7 +1497,6 @@
 
                 for(let i=1; i<termsCount; i++) {
                     let op = activeOps[Math.floor(Math.random() * activeOps.length)];
-                    // Force + or - if variables are present to ensure balance tracking works for simplification
                     if (hasVariables && op !== '+' && op !== '-') {
                         op = Math.random() > 0.5 ? '+' : '-';
                     }
@@ -933,14 +1585,44 @@
 
             let html = `<div class="problem-card"><span class="absolute top-0 left-0 text-[10px] font-bold text-gray-400">${i + 1}.</span>`;
             
-            if (p.type === 'order') {
+            if (p.type === 'ns_compare') {
+                html += `<div class="mt-4 ${fontSizeClass} font-mono whitespace-nowrap text-center w-full">
+                    ${p.d1} <span class="mx-3 inline-block border-b-2 border-black w-8 text-center">${isKey ? p.ans : '&nbsp;'}</span> ${p.d2}
+                </div>`;
+            } else if (p.type === 'ns_order') {
+                const label = p.dir === 'asc' ? "Order Least to Greatest:" : "Order Greatest to Least:";
+                html += `<div class="mt-4 flex flex-wrap items-baseline gap-2 w-full">
+                            <span class="text-sm font-bold text-gray-700 whitespace-nowrap">${label}</span>
+                            <div class="flex-1 min-w-0 text-left">
+                                <div class="${fontSizeClass} font-mono font-bold whitespace-nowrap js-order-problem-text tracking-widest text-left">
+                                    ${p.items.join(' ; ')}
+                                </div>
+                            </div>
+                        </div>`;
+                if(isKey) html += `<div class="text-xs mt-1 text-[#1D546D] font-bold w-full text-left">${p.ans}</div>`;
+                else html += `<div class="border-b-2 border-black w-full mt-10"></div>`;
+            } else if (p.type === 'ns_forms') {
+                 // Forms Problem: Simple question + answer line
+                 html += `<div class="mt-4 ${fontSizeClass} font-mono whitespace-nowrap w-full text-center">
+                    ${p.q} 
+                    ${isKey ? `<div class="text-[#1D546D] font-bold mt-1">${p.ans}</div>` : `<div class="border-b-2 border-black w-3/4 mx-auto mt-8"></div>`}
+                </div>`;
+            } else if (p.type === 'ns_text') {
+                 // For Rounding, we now only show the number as p.q, so we need an answer line
+                 const hasAnswerLine = currentMode === 'numberSense' && document.getElementById('senseModule').value === 'rounding';
+                 
+                 html += `<div class="mt-4 ${fontSizeClass} font-mono whitespace-nowrap w-full text-center">
+                    ${p.q} 
+                    ${isKey ? `<div class="text-[#1D546D] font-bold mt-1">${p.ans}</div>` : (hasAnswerLine ? `<div class="border-b-2 border-black w-3/4 mx-auto mt-8"></div>` : '')}
+                </div>`;
+            } else if (p.type === 'order') {
                 let problemText = p.display;
                 if (p.subst !== null && !isKey && !p.isGlobalSubst) {
                     problemText += `; \xa0 x = ${p.subst}`;
                 }
                html += `<div class="mt-6 ${fontSizeClass} font-mono whitespace-nowrap js-order-problem-text">${problemText}</div>`;
                 if (!isKey) {
-                   // =sign and answer line -> html += `<div class="mt-4 font-mono font-bold ${fontSizeClass} whitespace-nowrap"> = <span class="ml-2">_______</span></div>`;
+                   // =sign
                 } else {
                     html += `<div class="text-right font-bold text-[#1D546D] ${fontSizeClass}">${p.answer}</div>`;
                 }
@@ -973,23 +1655,53 @@
 
         function createPageHTML(title, isAnswerKey, pageNum, colCount, globalSubstVal) {
             let substHeader = "";
-            if (!isAnswerKey && globalSubstVal !== null && currentMode === 'order') {
+            
+            // Check if we are in Number Sense Forms or Rounding mode to add header instructions
+            const isNumberSense = currentMode === 'numberSense';
+            const nsModule = document.getElementById('senseModule').value;
+            
+            if (isNumberSense && !isAnswerKey) {
+                let instruction = "";
+                
+                if (nsModule === 'forms') {
+                    const task = document.getElementById('formTask').value;
+                    if(task === 'expanded') instruction = "Write each number in expanded form.";
+                    else if(task === 'standard') instruction = "Write each number in standard form.";
+                    else if(task === 'underline') instruction = "Determine the value of the underlined digit.";
+                } else if (nsModule === 'rounding') {
+                    const target = parseFloat(document.querySelector('input[name="roundTarget"]:checked').value);
+                    if(target === 10) instruction = "Round each number to the nearest ten.";
+                    else if(target === 100) instruction = "Round each number to the nearest hundred.";
+                    else if(target === 1000) instruction = "Round each number to the nearest thousand.";
+                    else if(target === 1) instruction = "Round each number to the nearest whole number.";
+                    else if(target === 0.1) instruction = "Round each number to the nearest tenth.";
+                }
+                
+                if(instruction) {
+                    substHeader = `<div class="text-center font-bold text-lg mt-4 text-[#1D546D] border-b-2 border-gray-300 pb-2 w-full">${instruction}</div>`;
+                }
+            }
+            // Order of Ops substitution header (existing logic)
+            else if (!isAnswerKey && globalSubstVal !== null && currentMode === 'order') {
                 substHeader = `<div class="text-center font-bold text-lg mt-2 text-[#1D546D]">Evaluate each expression given x = ${globalSubstVal}</div>`;
             }
 
             return `
             <div class="page-container" style="transform: scale(${currentZoom})">
-                <header class="text-center mb-10 border-b-2 border-teal pb-5">
-                    <h1 class="worksheet-title-display text-3xl font-black heading-primary tracking-tight">${isAnswerKey ? 'Answer Key - ' : ''}${title}</h1>
+                <header class="text-center mb-6 border-b-2 border-teal pb-5">
+                    <h1 class="worksheet-title-display text-3xl font-black heading-primary tracking-tight" 
+                        contenteditable="true" 
+                        data-is-key="${isAnswerKey}"
+                        spellcheck="false">${isAnswerKey ? 'Answer Key - ' : ''}${title}</h1>
                     ${!isAnswerKey ? `
                     <div class="flex justify-between items-end mt-8 font-bold text-navy text-sm">
                         <div class="flex items-baseline flex-1 pr-8"><span>Name:</span><div class="header-line w-48 ml-2"></div></div>
                        
                         <div class="flex items-baseline ml-4"><span>Date:</span><div class="header-line w-24 ml-2"></div></div>
                     </div>` : `<div class="mt-4 font-bold text-navy">Page ${pageNum}</div>`}
-                    ${substHeader}
                 </header>
-                <div class="worksheet-grid problem-area" style="grid-template-columns: repeat(${colCount}, 1fr)"></div>
+                ${substHeader}
+                <div class="worksheet-grid problem-area mt-6" style="grid-template-columns: repeat(${colCount}, 1fr)"></div>
             </div>`;
         }
 
@@ -1000,64 +1712,103 @@
             
             // Dynamically determine column quantity based on problems per page
             let colCount;
-            if (probQty <= 5) colCount = 1; // 1-5 problems: 1 column
-            else if (probQty <= 10) colCount = 2; // 6-10 problems: 2 columns
-            else if (probQty <= 15) colCount = 3; // 11-15 problems: 3 columns
-            else if (probQty < 20) colCount = 4; // 16-20 problems: 4 columns
-            else colCount = 5; // For >=20 problems, use 5 columns
+            if (probQty <= 5) colCount = 1; 
+            else if (probQty <= 10) colCount = 2; 
+            else if (probQty <= 15) colCount = 3; 
+            else if (probQty < 20) colCount = 4; 
+            else colCount = 5; 
+            
+            // Overrides for Number Sense Layouts
+            if (currentMode === 'numberSense') {
+                 const mod = document.getElementById('senseModule').value;
+                 if (mod === 'compare' && document.querySelector('input[name="compType"]:checked').value === 'order') {
+                     colCount = 1; // Ordering lists needs width
+                 }
+                 else if (mod === 'forms' || mod === 'patterns') {
+                     colCount = Math.min(colCount, 2); // Text based Qs need space
+                 }
+            }
 
             const title = ui.titleInput.value || "Mathematics Assessment";
             const activeOps = Array.from(document.querySelectorAll('#arithmeticControls input[name="ops"]:checked')).map(i => i.value);
             const substMode = document.getElementById('substMode').value;
+            const distMode = document.querySelector('input[name="opDist"]:checked')?.value || 'mixed';
 
-            // Calculate font size class
-            let fontSizeClass = 'text-2xl'; // Default for 1 column
+            let fontSizeClass = 'text-2xl'; 
             if (colCount === 2) fontSizeClass = 'text-xl';
             else if (colCount === 3) fontSizeClass = 'text-lg';
-            else if (colCount >= 4) fontSizeClass = 'text-base'; // Use text-base for 4 or 5 columns
+            else if (colCount >= 4) fontSizeClass = 'text-base'; 
 
             const allData = [];
             const globalSubstVals = [];
 
-            for(let p=0; p<pageQty; p++) {
-                const pageProbs = [];
-                let globalVal = null;
-                if (currentMode === 'order' && substMode === 'global') {
-                    globalVal = Math.floor(Math.random() * 10) + 1;
-                }
-                globalSubstVals.push(globalVal);
+            if (currentMode === 'order') {
+                for(let p=0; p<pageQty; p++) {
+                    const pageProbs = [];
+                    let globalVal = null;
+                    if (substMode === 'global') globalVal = Math.floor(Math.random() * 10) + 1;
+                    globalSubstVals.push(globalVal);
 
-                for(let i=0; i<probQty; i++) {
-                    if (currentMode === 'order') {
+                    for(let i=0; i<probQty; i++) {
                         pageProbs.push(generateOrderOfOps(substMode, globalVal));
-                    } else {
-                        const op = activeOps[Math.floor(Math.random()*activeOps.length)] || 'addition';
-                        pageProbs.push(createArithmeticProblem(op));
+                    }
+                    allData.push(pageProbs);
+                }
+            } else if (currentMode === 'numberSense') {
+                for(let p=0; p<pageQty; p++) {
+                    const pageProbs = [];
+                    globalSubstVals.push(null);
+                    for(let i=0; i<probQty; i++) {
+                        pageProbs.push(generateNumberSenseProblem());
+                    }
+                    allData.push(pageProbs);
+                }
+            } else {
+                // Arithmetic Logic
+                if (distMode === 'grouped' && activeOps.length > 0) {
+                    activeOps.forEach(op => {
+                         for(let p=0; p<pageQty; p++) {
+                            const pageProbs = [];
+                            globalSubstVals.push(null); 
+                            for(let i=0; i<probQty; i++) {
+                                pageProbs.push(createArithmeticProblem(op));
+                            }
+                            allData.push(pageProbs);
+                         }
+                    });
+                } else {
+                    for(let p=0; p<pageQty; p++) {
+                        const pageProbs = [];
+                        globalSubstVals.push(null);
+                        for(let i=0; i<probQty; i++) {
+                            const op = activeOps[Math.floor(Math.random()*activeOps.length)] || 'addition';
+                            pageProbs.push(createArithmeticProblem(op));
+                        }
+                        allData.push(pageProbs);
                     }
                 }
-                allData.push(pageProbs);
             }
 
             allData.forEach((probs, pIdx) => {
                 const temp = document.createElement('div');
-                temp.innerHTML = createPageHTML(title, false, pIdx+1, colCount, globalSubstVals[pIdx]); // Pass colCount
+                temp.innerHTML = createPageHTML(title, false, pIdx+1, colCount, globalSubstVals[pIdx]); 
                 const page = temp.firstElementChild;
                 const grid = page.querySelector('.problem-area');
                 probs.forEach((p, i) => grid.innerHTML += renderProblem(p, i, false, fontSizeClass));
-                 if (currentMode === 'order') {
-                        grid.querySelectorAll('.js-order-problem-text').forEach(adjustOrderProblemFontSize);
-        }
+                if (currentMode === 'order' || (currentMode === 'numberSense')) {
+                    grid.querySelectorAll('.js-order-problem-text').forEach(adjustOrderProblemFontSize);
+                }
                 ui.pageWrapper.appendChild(page);
             });
 
             if(document.getElementById('includeKey').checked) {
                 allData.forEach((probs, pIdx) => {
                     const temp = document.createElement('div');
-                    temp.innerHTML = createPageHTML(title, true, pIdx+1, colCount, null); // Pass colCount
+                    temp.innerHTML = createPageHTML(title, true, pIdx+1, colCount, null); 
                     const page = temp.firstElementChild;
                     const grid = page.querySelector('.problem-area');
                     probs.forEach((p, i) => grid.innerHTML += renderProblem(p, i, true, fontSizeClass));
-                    if (currentMode === 'order') {
+                    if (currentMode === 'order' || (currentMode === 'numberSense')) {
                         grid.querySelectorAll('.js-order-problem-text').forEach(adjustOrderProblemFontSize);
                     }
                     ui.pageWrapper.appendChild(page);
@@ -1070,22 +1821,17 @@
         function adjustOrderProblemFontSize(problemElement) {
             const parentContainer = problemElement.parentElement;
             if (!parentContainer) return;
-
-            const containerWidth = parentContainer.clientWidth; // Renamed for clarity and consistency
+            const containerWidth = parentContainer.clientWidth; 
             let textWidth = problemElement.scrollWidth;
-
             const buffer = 5;
-            if (textWidth > containerWidth - buffer) { // Use containerWidth
-                let currentFontSize = parseFloat(window.getComputedStyle(problemElement).fontSize); // Corrected typo
-                let newFontSize = currentFontSize * ((containerWidth - buffer) / textWidth); // Removed * 0.95 to allow max possible size
-
+            if (textWidth > containerWidth - buffer) { 
+                let currentFontSize = parseFloat(window.getComputedStyle(problemElement).fontSize); 
+                let newFontSize = currentFontSize * ((containerWidth - buffer) / textWidth); 
                 newFontSize = Math.max(newFontSize, 10);
-                problemElement.style.fontSize = `${newFontSize}px`; // Corrected string interpolation
+                problemElement.style.fontSize = `${newFontSize}px`; 
             }
-            
         }
         
-
         window.onload = updatePreview;
     </script>
 </body>
